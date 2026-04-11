@@ -3,7 +3,7 @@ import { ChatHistoryList } from "../../features/chat/components/ChatHistoryList"
 import { NewDiagnosisButton } from "../../features/chat/components/NewDiagnosisButton";
 import { SidebarSearchInput } from "../../features/chat/components/SidebarSearchInput";
 import { SidebarSystemNav } from "../../features/chat/components/SidebarSystemNav";
-import { useChatThreads } from "../../features/chat/hooks/useChatThreads";
+import { useChatWorkspace } from "../../features/chat/hooks/useChatWorkspace";
 import { useFilteredChatThreads } from "../../features/chat/hooks/useFilteredChatThreads";
 import { cn } from "../../lib/cn";
 import { SidebarAccountFooter } from "./SidebarAccountFooter";
@@ -22,9 +22,8 @@ export function AppSidebar({
   onManualsClick,
   onSettingsClick,
 }: AppSidebarProps) {
-  const threads = useChatThreads();
+  const { threads, selectedThreadId, setSelectedThreadId } = useChatWorkspace();
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>("1");
   const listThreads = useFilteredChatThreads(threads, query);
 
   return (
@@ -39,7 +38,11 @@ export function AppSidebar({
         <NewDiagnosisButton onClick={onNewDiagnosis} />
         <SidebarSearchInput value={query} onChange={setQuery} />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-          <ChatHistoryList threads={listThreads} selectedId={selectedId} onSelect={setSelectedId} />
+          <ChatHistoryList
+            threads={listThreads}
+            selectedId={selectedThreadId}
+            onSelect={setSelectedThreadId}
+          />
         </div>
       </div>
 
