@@ -7,19 +7,27 @@ type NavButtonProps = {
   label: string;
   onClick?: () => void;
   badge?: number;
+  active?: boolean;
 };
 
-function SystemNavButton({ icon: Icon, label, onClick, badge }: NavButtonProps) {
+function SystemNavButton({ icon: Icon, label, onClick, badge, active }: NavButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-text-primary transition-colors",
-        "hover:bg-surface/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus",
+        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus",
+        active
+          ? "bg-surface font-semibold text-primary"
+          : "text-text-primary hover:bg-surface/80",
       )}
     >
-      <Icon className="size-4 shrink-0 text-text-secondary" strokeWidth={2} aria-hidden />
+      <Icon
+        className={cn("size-4 shrink-0", active ? "text-primary" : "text-text-secondary")}
+        strokeWidth={2}
+        aria-hidden
+      />
       <span className="min-w-0 flex-1">{label}</span>
       {badge != null && badge > 0 ? (
         <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-white">
@@ -31,14 +39,16 @@ function SystemNavButton({ icon: Icon, label, onClick, badge }: NavButtonProps) 
 }
 
 type SidebarSystemNavProps = {
-  manualsCount?: number;
+  manualsCount: number;
+  manualsActive?: boolean;
   onManualsClick?: () => void;
   onSettingsClick?: () => void;
   className?: string;
 };
 
 export function SidebarSystemNav({
-  manualsCount = 24,
+  manualsCount,
+  manualsActive,
   onManualsClick,
   onSettingsClick,
   className,
@@ -51,6 +61,7 @@ export function SidebarSystemNav({
         label="Manuales técnicos"
         onClick={onManualsClick}
         badge={manualsCount}
+        active={manualsActive}
       />
       <SystemNavButton icon={Settings} label="Ajustes" onClick={onSettingsClick} />
     </nav>

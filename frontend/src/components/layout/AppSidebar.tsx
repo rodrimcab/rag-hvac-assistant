@@ -11,18 +11,29 @@ import { SidebarBrandHeader } from "./SidebarBrandHeader";
 
 type AppSidebarProps = {
   className?: string;
+  manualsCount: number;
+  manualsNavActive?: boolean;
   onNewDiagnosis?: () => void;
   onManualsClick?: () => void;
+  onSelectThread?: () => void;
   onSettingsClick?: () => void;
 };
 
 export function AppSidebar({
   className,
+  manualsCount,
+  manualsNavActive,
   onNewDiagnosis,
   onManualsClick,
+  onSelectThread,
   onSettingsClick,
 }: AppSidebarProps) {
   const { threads, selectedThreadId, setSelectedThreadId } = useChatWorkspace();
+
+  const handleSelectThread = (id: string) => {
+    setSelectedThreadId(id);
+    onSelectThread?.();
+  };
   const [query, setQuery] = useState("");
   const listThreads = useFilteredChatThreads(threads, query);
 
@@ -41,13 +52,18 @@ export function AppSidebar({
           <ChatHistoryList
             threads={listThreads}
             selectedId={selectedThreadId}
-            onSelect={setSelectedThreadId}
+            onSelect={handleSelectThread}
           />
         </div>
       </div>
 
       <div className="shrink-0 space-y-4 border-t border-border bg-background p-4">
-        <SidebarSystemNav onManualsClick={onManualsClick} onSettingsClick={onSettingsClick} />
+        <SidebarSystemNav
+          manualsCount={manualsCount}
+          manualsActive={manualsNavActive}
+          onManualsClick={onManualsClick}
+          onSettingsClick={onSettingsClick}
+        />
         <SidebarAccountFooter />
       </div>
     </aside>
