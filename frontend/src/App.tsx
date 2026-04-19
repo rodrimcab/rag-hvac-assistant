@@ -30,6 +30,7 @@ function App() {
         manualsCount={manualsCount}
         manualsNavActive={workspaceView === "manuals"}
         onManualsClick={() => setWorkspaceView("manuals")}
+        onNewDiagnosis={() => setWorkspaceView("chat")}
         onSelectThread={() => setWorkspaceView("chat")}
       >
         {workspaceView === "chat" ? (

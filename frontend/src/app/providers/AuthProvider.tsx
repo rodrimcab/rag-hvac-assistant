@@ -2,9 +2,9 @@ import { useMemo, useState, type ReactNode } from "react";
 import { AuthContext, type SessionUser } from "./auth-context";
 
 const demoUser: SessionUser = {
-  name: "Rodrigo Mena",
+  name: "Usuario de Prueba",
   roleLabel: "Técnico • UCA 2026",
-  initials: "RM",
+  initials: "U",
 };
 
 type AuthProviderProps = {

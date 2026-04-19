@@ -1,25 +1,50 @@
-import { ArrowUp, FileText, ImageIcon, Plus } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { ArrowUp, Camera, FileText, ImageIcon, Plus } from "lucide-react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../../../lib/cn";
 import { useChatWorkspace } from "../hooks/useChatWorkspace";
+import type { ChatAttachment } from "../types/message.types";
+import { CameraCaptureModal } from "./CameraCaptureModal";
+import { ChatAttachmentsStrip, fileToAttachmentKind } from "./ChatAttachmentsStrip";
 
 /** Equivalente a `max-h-40` (10rem) con `text-base` en raíz. */
 const TEXTAREA_MAX_HEIGHT_PX = 160;
 /** Equivalente a `min-h-[3rem]`. */
 const TEXTAREA_MIN_HEIGHT_PX = 48;
+const MAX_ATTACHMENTS = 12;
+
+const DOC_ACCEPT =
+  ".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
 
 function resetInput(el: HTMLInputElement | null) {
   if (el) el.value = "";
 }
 
+function newAttachmentId() {
+  return globalThis.crypto?.randomUUID?.() ?? `att-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function filesToAttachments(files: File[]): ChatAttachment[] {
+  return files.map((file) => ({
+    id: newAttachmentId(),
+    name: file.name,
+    mimeType: file.type || "application/octet-stream",
+    kind: fileToAttachmentKind(file),
+    previewUrl: URL.createObjectURL(file),
+  }));
+}
+
 export function ChatComposer() {
-  const { sendUserMessage } = useChatWorkspace();
+  const { sendUserMessage, newDiagnosisFocusNonce } = useChatWorkspace();
   const [draft, setDraft] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+  const pendingRef = useRef(pendingAttachments);
+  pendingRef.current = pendingAttachments;
   const baseId = useId();
   const imageInputId = `${baseId}-image`;
   const docInputId = `${baseId}-doc`;
@@ -45,19 +70,75 @@ export function ChatComposer() {
     return () => document.removeEventListener("mousedown", close);
   }, [menuOpen]);
 
-  const handleSend = () => {
-    sendUserMessage(draft);
-    setDraft("");
+  useEffect(() => {
+    if (newDiagnosisFocusNonce === 0) return;
+    pendingRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+    setPendingAttachments([]);
+    setCameraOpen(false);
+    textareaRef.current?.focus();
+  }, [newDiagnosisFocusNonce]);
+
+  useEffect(() => {
+    return () => {
+      pendingRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+    };
+  }, []);
+
+  const addFiles = useCallback((files: File[]) => {
+    if (!files.length) return;
+    setPendingAttachments((prev) => {
+      const room = Math.max(0, MAX_ATTACHMENTS - prev.length);
+      if (room === 0) return prev;
+      const nextFiles = files.slice(0, room);
+      return [...prev, ...filesToAttachments(nextFiles)];
+    });
+  }, []);
+
+  const appendFromFileList = (list: FileList | null) => {
+    if (!list?.length) return;
+    addFiles(Array.from(list));
   };
 
-  const handleFilesPicked = () => {
-    /* Reservado: integrar adjuntos con el backend o estado del compositor. */
+  const removePending = (id: string) => {
+    setPendingAttachments((prev) => {
+      const found = prev.find((a) => a.id === id);
+      if (found) URL.revokeObjectURL(found.previewUrl);
+      return prev.filter((a) => a.id !== id);
+    });
   };
+
+  const handleSend = () => {
+    const trimmed = draft.trim();
+    if (!trimmed && pendingAttachments.length === 0) return;
+    sendUserMessage(draft, pendingAttachments);
+    setDraft("");
+    setPendingAttachments([]);
+  };
+
+  const canSend = draft.trim().length > 0 || pendingAttachments.length > 0;
 
   return (
     <div className="shrink-0 border-t border-border bg-white px-4 pb-2 pt-3">
+      {cameraOpen ? (
+        <CameraCaptureModal
+          open={cameraOpen}
+          onClose={() => setCameraOpen(false)}
+          onPhoto={(file) => addFiles([file])}
+        />
+      ) : null}
+
       <div className="relative mx-auto max-w-3xl">
         <div className="rounded-2xl border border-border bg-background/50 shadow-sm">
+          {pendingAttachments.length > 0 ? (
+            <div className="rounded-t-2xl border-b border-border/60 bg-white/90 px-3 py-2">
+              <ChatAttachmentsStrip
+                attachments={pendingAttachments}
+                onRemove={removePending}
+                tone="composer"
+              />
+            </div>
+          ) : null}
+
           <textarea
             ref={textareaRef}
             value={draft}
@@ -65,15 +146,18 @@ export function ChatComposer() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSend();
+                if (canSend) handleSend();
               }
             }}
             placeholder="Describí el síntoma o código de error..."
             rows={1}
-            className="max-h-40 min-h-[3rem] w-full resize-none rounded-t-2xl border-0 bg-transparent px-4 py-3 text-sm text-text-primary placeholder:text-text-disabled focus:outline-none focus:ring-0"
+            className={cn(
+              "max-h-40 min-h-[3rem] w-full resize-none border-0 bg-transparent px-4 py-3 text-sm text-text-primary placeholder:text-text-disabled focus:outline-none focus:ring-0",
+              pendingAttachments.length > 0 ? "rounded-t-none" : "rounded-t-2xl",
+            )}
           />
 
-          <div className="flex items-center gap-1 border-t border-border/60 px-2 py-2">
+          <div className="flex items-center gap-1 rounded-b-2xl border-t border-border/60 px-2 py-2">
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
@@ -94,8 +178,20 @@ export function ChatComposer() {
               {menuOpen ? (
                 <div
                   role="menu"
-                  className="absolute bottom-full left-0 z-20 mb-2 min-w-[11rem] overflow-hidden rounded-xl border border-border bg-white py-1 shadow-lg"
+                  className="absolute bottom-full left-0 z-20 mb-2 min-w-[12rem] overflow-hidden rounded-xl border border-border bg-white py-1 shadow-lg"
                 >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-text-primary hover:bg-surface/80"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setCameraOpen(true);
+                    }}
+                  >
+                    <Camera className="size-4 shrink-0 text-text-secondary" />
+                    Tomar foto
+                  </button>
                   <button
                     type="button"
                     role="menuitem"
@@ -106,7 +202,7 @@ export function ChatComposer() {
                     }}
                   >
                     <ImageIcon className="size-4 shrink-0 text-text-secondary" />
-                    Subir imagen
+                    Imágenes
                   </button>
                   <button
                     type="button"
@@ -118,7 +214,7 @@ export function ChatComposer() {
                     }}
                   >
                     <FileText className="size-4 shrink-0 text-text-secondary" />
-                    Subir archivo
+                    Archivos
                   </button>
                 </div>
               ) : null}
@@ -129,7 +225,7 @@ export function ChatComposer() {
             <button
               type="button"
               aria-label="Enviar mensaje"
-              disabled={!draft.trim()}
+              disabled={!canSend}
               onClick={handleSend}
               className={cn(
                 "flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-sm transition-colors",
@@ -152,10 +248,11 @@ export function ChatComposer() {
           ref={imageInputRef}
           type="file"
           accept="image/*"
+          multiple
           className="sr-only"
           tabIndex={-1}
           onChange={(e) => {
-            if (e.target.files?.length) handleFilesPicked();
+            appendFromFileList(e.target.files);
             resetInput(e.target);
           }}
         />
@@ -163,11 +260,12 @@ export function ChatComposer() {
           id={docInputId}
           ref={docInputRef}
           type="file"
-          accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+          accept={DOC_ACCEPT}
+          multiple
           className="sr-only"
           tabIndex={-1}
           onChange={(e) => {
-            if (e.target.files?.length) handleFilesPicked();
+            appendFromFileList(e.target.files);
             resetInput(e.target);
           }}
         />

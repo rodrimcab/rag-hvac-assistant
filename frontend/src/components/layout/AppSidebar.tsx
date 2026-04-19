@@ -28,7 +28,7 @@ export function AppSidebar({
   onSelectThread,
   onSettingsClick,
 }: AppSidebarProps) {
-  const { threads, selectedThreadId, setSelectedThreadId } = useChatWorkspace();
+  const { threads, selectedThreadId, setSelectedThreadId, startNewDiagnosis } = useChatWorkspace();
 
   const handleSelectThread = (id: string) => {
     setSelectedThreadId(id);
@@ -46,7 +46,12 @@ export function AppSidebar({
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
         <SidebarBrandHeader />
-        <NewDiagnosisButton onClick={onNewDiagnosis} />
+        <NewDiagnosisButton
+          onClick={() => {
+            startNewDiagnosis();
+            onNewDiagnosis?.();
+          }}
+        />
         <SidebarSearchInput value={query} onChange={setQuery} />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
           <ChatHistoryList

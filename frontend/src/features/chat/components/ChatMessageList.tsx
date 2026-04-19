@@ -7,6 +7,7 @@ import { ChatMessageBubble } from "./ChatMessageBubble";
 
 type ChatMessageListProps = {
   messages: ChatMessage[];
+  isNewDiagnosisSession?: boolean;
 };
 
 function DaySeparator({ date }: { date: Date }) {
@@ -19,14 +20,18 @@ function DaySeparator({ date }: { date: Date }) {
   );
 }
 
-export function ChatMessageList({ messages }: ChatMessageListProps) {
+export function ChatMessageList({ messages, isNewDiagnosisSession }: ChatMessageListProps) {
   const { user } = useAuth();
   const initials = user?.initials ?? "?";
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center text-sm text-text-secondary">
-        No hay mensajes en este diagnóstico.
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+        <p className="max-w-sm text-sm leading-relaxed text-text-secondary">
+          {isNewDiagnosisSession
+            ? "Describí el síntoma, el modelo del equipo o el código de error para iniciar un diagnóstico nuevo."
+            : "No hay mensajes en este diagnóstico."}
+        </p>
       </div>
     );
   }

@@ -6,6 +6,7 @@ type AppShellProps = {
   manualsCount: number;
   manualsNavActive: boolean;
   onManualsClick: () => void;
+  onNewDiagnosis: () => void;
   onSelectThread: () => void;
 };
 
@@ -14,6 +15,7 @@ export function AppShell({
   manualsCount,
   manualsNavActive,
   onManualsClick,
+  onNewDiagnosis,
   onSelectThread,
 }: AppShellProps) {
   return (
@@ -22,6 +24,7 @@ export function AppShell({
         manualsCount={manualsCount}
         manualsNavActive={manualsNavActive}
         onManualsClick={onManualsClick}
+        onNewDiagnosis={onNewDiagnosis}
         onSelectThread={onSelectThread}
       />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white text-text-primary">
