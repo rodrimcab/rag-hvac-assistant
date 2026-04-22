@@ -115,10 +115,12 @@ export function ChatComposer() {
     clearChatError();
     const text = draft;
     const attachments = pendingAttachments;
+    if (trimmed.length > 0) {
+      setDraft("");
+    }
     const ok = await sendUserMessage(text, attachments);
     if (ok) {
       attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
-      setDraft("");
       setPendingAttachments([]);
     }
   };

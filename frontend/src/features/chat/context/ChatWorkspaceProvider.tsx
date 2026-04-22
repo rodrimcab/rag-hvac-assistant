@@ -111,12 +111,14 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
       setIsChatLoading(true);
       setChatError(null);
       try {
-        const { answer } = await postChat(trimmed);
+        const { answer, sources: rawSources } = await postChat(trimmed);
+        const sources = rawSources ?? [];
         const assistantMsg: ChatMessage = {
           id: `local-${Date.now()}-a`,
           role: "assistant",
           content: answer,
           createdAt: new Date(),
+          ...(sources.length ? { sources } : {}),
         };
         setExtraByThread((prev) => ({
           ...prev,

@@ -4,6 +4,7 @@ from llama_index.core.node_parser import SentenceSplitter
 from app.core.config import Settings
 from app.rag.embeddings import build_embedding_model
 from app.rag.llm import build_llm
+from app.rag.postprocessors import SkipEmptyNodePostprocessor
 from app.rag.prompts import TEXT_QA_TEMPLATE
 from app.rag.vector_store import build_memory_vector_index
 from app.schemas.chat import RAGQueryResult, RetrievedSourceChunk
@@ -75,12 +76,20 @@ class RAGService:
             llm=llm,
             similarity_top_k=self._settings.rag_similarity_top_k,
             text_qa_template=TEXT_QA_TEMPLATE,
+            node_postprocessors=[
+                SkipEmptyNodePostprocessor(
+                    min_chars=self._settings.rag_min_node_text_chars,
+                ),
+            ],
         )
         response = engine.query(question)
 
         sources: list[RetrievedSourceChunk] = []
+        min_src = self._settings.rag_min_node_text_chars
         for node in response.source_nodes or []:
             node_text = node.get_text()
+            if len((node_text or "").strip()) < min_src:
+                continue
             meta = node.metadata or {}
             file_name = meta.get("file_name")
             if not isinstance(file_name, str):

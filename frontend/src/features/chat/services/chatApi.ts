@@ -1,14 +1,9 @@
 import { getApiBaseUrl } from "../../../lib/apiBaseUrl";
-
-export type ChatApiSource = {
-  text: string;
-  file_name?: string | null;
-  score?: number | null;
-};
+import type { ChatDocumentSource } from "../types/message.types";
 
 export type ChatApiResponse = {
   answer: string;
-  sources: ChatApiSource[];
+  sources: ChatDocumentSource[];
 };
 
 async function readErrorMessage(res: Response): Promise<string> {

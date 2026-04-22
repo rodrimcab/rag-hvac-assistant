@@ -26,7 +26,10 @@ class Settings(BaseSettings):
     gemini_llm_model: str = "gemini-3-flash-preview"
     gemini_embedding_model: str = "gemini-embedding-001"
     manuals_dir: str = "data/manuals"
-    rag_similarity_top_k: int = 4
+    # Retrieve more chunks than the LLM strictly needs, then drop empty/low-text nodes
+    # so broad questions still get real passages (see ``SkipEmptyNodePostprocessor``).
+    rag_similarity_top_k: int = 12
+    rag_min_node_text_chars: int = 12
     # Indexing: larger token chunks => fewer embedding calls (helps free-tier / RPM limits).
     # Keep <= ~2048 tokens for gemini-embedding-001 input limits.
     rag_chunk_size: int = 2048
