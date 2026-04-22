@@ -1,0 +1,4 @@
+# Phase 1: FastAPI foundation only. Pin versions for reproducible local MVP.
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+pydantic-settings==2.8.1
