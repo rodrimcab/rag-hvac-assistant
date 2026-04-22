@@ -5,7 +5,8 @@ Python **FastAPI** service for the RAG HVAC assistant.
 ## Phases
 
 - **Phase 1**: configuration, CORS, OpenAPI docs, health endpoint.
-- **Phase 2**: LlamaIndex + Gemini (Google GenAI) wiring, local PDF ingestion under `data/manuals/`, in-memory vector index, and `RAGService` for programmatic queries. Defaults: **`gemini-3-flash-preview`** (generation, aligns with current free-tier options in Gemini API) and **`gemini-embedding-001`** (embeddings). Set `GEMINI_LLM_MODEL` in `.env` to match what **AI Studio → Usage / models** lists for your project (for example, `gemini-3.1-flash-lite-preview` for lower cost or `gemini-2.5-pro` when available). **ChromaDB** and **`/api/chat`** arrive in later phases.
+- **Phase 2**: LlamaIndex + Gemini (Google GenAI) wiring, local PDF ingestion under `data/manuals/`, in-memory vector index, and `RAGService` for programmatic queries. Defaults: **`gemini-3-flash-preview`** (generation, aligns with current free-tier options in Gemini API) and **`gemini-embedding-001`** (embeddings). Set `GEMINI_LLM_MODEL` in `.env` to match what **AI Studio → Usage / models** lists for your project (for example, `gemini-3.1-flash-lite-preview` for lower cost or `gemini-2.5-pro` when available).
+- **Phase 3**: HTTP chat endpoint (`POST /api/chat`) connected to `RAGService.query()` and returning answer plus retrieved source snippets.
 
 ## Setup
 
@@ -20,13 +21,25 @@ cp .env.example .env
 
 ## Run API
 
-From the `backend` directory (so the `app` package resolves):
+`uvicorn` is installed **inside** the virtualenv. Activate it first, then run from the `backend` directory (so the `app` package resolves):
 
 ```bash
+cd backend
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Try the RAG stack (Phase 2, no HTTP chat yet)
+If you see `zsh: command not found: uvicorn`, you skipped `source .venv/bin/activate` or used a different shell without the venv.
+
+**Optional — load `.env` into the shell** (only if you need env vars for tools other than the app; FastAPI already reads `backend/.env` via Pydantic). Values with spaces must be quoted, e.g. `APP_NAME="RAG HVAC Assistant API"`:
+
+```bash
+cd /path/to/rag-hvac-assistant
+set -a && source backend/.env && set +a
+cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## Try the RAG stack (Phase 2 service check)
 
 1. Put one or more `*.pdf` files in `data/manuals/` (you can copy them from `frontend/src/assets/` while developing).
 2. Export `GOOGLE_API_KEY` (or set `google_api_key` in `.env`).
@@ -40,12 +53,38 @@ The first call builds an **in-memory** index (re-run after changing manuals, or 
 
 If indexing fails with **429 / RESOURCE_EXHAUSTED** from Google, you hit embedding **rate limits or quota** on a large PDF. Wait a minute and retry, use a smaller manual while developing, or tune `.env`: larger `RAG_CHUNK_SIZE` (up to ~2048 tokens) and lower `EMBEDDING_BATCH_SIZE` to reduce bursts. For sustained load, check [Gemini rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) and billing on your Google AI project.
 
-## Endpoints (Phase 1 surface)
+## Try HTTP chat (Phase 3)
+
+With the API running from `backend/`, execute:
+
+```bash
+curl -X POST "http://localhost:8000/api/chat" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"¿Qué precauciones generales indica el manual para mantenimiento?"}'
+```
+
+Expected response shape:
+
+```json
+{
+  "answer": "....",
+  "sources": [
+    {
+      "text": "....",
+      "file_name": "Example.pdf",
+      "score": 0.87
+    }
+  ]
+}
+```
+
+## Endpoints (Phase 3 surface)
 
 | Path | Description |
 |------|-------------|
 | `GET /` | Service metadata and links |
 | `GET /api/health` | Health check |
+| `POST /api/chat` | RAG query endpoint (message -> answer + sources) |
 | `GET /docs` | Swagger UI |
 
 The frontend (Vite) is expected on `http://localhost:5173`; adjust `CORS_ORIGINS` in `.env` if needed.
