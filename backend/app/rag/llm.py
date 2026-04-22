@@ -8,4 +8,5 @@ def build_llm(settings: Settings) -> GoogleGenAI:
     return GoogleGenAI(
         model=settings.gemini_llm_model,
         api_key=settings.google_api_key,
+        temperature=settings.gemini_llm_temperature,
     )

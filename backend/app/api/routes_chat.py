@@ -14,7 +14,7 @@ def chat(
 ) -> ChatResponse:
     """Run one RAG query using local manuals and return answer + sources."""
     try:
-        result = rag_service.query(payload.message)
+        result = rag_service.query(payload.message, mode=payload.mode)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

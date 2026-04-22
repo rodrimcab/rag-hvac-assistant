@@ -19,23 +19,27 @@ class Settings(BaseSettings):
 
     # RAG / Gemini (optional until you run indexing or queries)
     google_api_key: str | None = None
-    # Thesis (Cap. 4) cited Gemini 1.5 Pro; unversioned `gemini-1.5-pro` and often `gemini-1.5-pro-002`
-    # return 404 on the consumer Gemini API for newer projects. Default to a current GA model;
-    # override with GEMINI_LLM_MODEL (e.g. `gemini-2.5-pro` or `gemini-1.5-flash-002`) if your
-    # project lists it in AI Studio.
-    gemini_llm_model: str = "gemini-3-flash-preview"
+    # Gemini 1.5 Pro was retired from the consumer API (404). Gemini 2.5 Pro is
+    # paid-tier-only on new projects (Free-tier quota = 0). Flash 2.5 is the
+    # most capable tier accessible on Free tier today.
+    gemini_llm_model: str = "models/gemini-2.5-flash"
+    gemini_llm_temperature: float = 0.1
     gemini_embedding_model: str = "gemini-embedding-001"
     manuals_dir: str = "data/manuals"
-    # Retrieve more chunks than the LLM strictly needs, then drop empty/low-text nodes
-    # so broad questions still get real passages (see ``SkipEmptyNodePostprocessor``).
-    rag_similarity_top_k: int = 12
     rag_min_node_text_chars: int = 12
-    # Indexing: larger token chunks => fewer embedding calls (helps free-tier / RPM limits).
-    # Keep <= ~2048 tokens for gemini-embedding-001 input limits.
-    rag_chunk_size: int = 2048
-    rag_chunk_overlap: int = 100
-    # Smaller batches reduce burst traffic on embed_content (mitigates some 429s).
-    embedding_batch_size: int = 8
+    # Winning config: 1024 / 200 offers the best recall/noise tradeoff on service manuals.
+    rag_chunk_size: int = 1024
+    rag_chunk_overlap: int = 200
+    # Dynamic top_k per query intent (see RAGService._infer_mode).
+    rag_diagnosis_top_k: int = 5
+    rag_error_code_top_k: int = 3
+    # Conservative batching for the Free-tier limits of gemini-embedding-001:
+    # 5 items per call, spaced by `embedding_min_interval_seconds` to stay under RPM caps.
+    embedding_batch_size: int = 5
+    embedding_min_interval_seconds: float = 12.0
+    # ChromaDB persistence (relative to `backend/`).
+    chroma_db_path: str = "./chroma_db"
+    chroma_collection_name: str = "hvac_manuals"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -56,3 +60,7 @@ class Settings(BaseSettings):
     @property
     def manuals_path(self) -> Path:
         return (self.backend_root / self.manuals_dir).resolve()
+
+    @property
+    def chroma_db_absolute_path(self) -> Path:
+        return (self.backend_root / self.chroma_db_path).resolve()

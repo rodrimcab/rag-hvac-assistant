@@ -1,10 +1,18 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+QueryMode = Literal["diagnosis", "error_code"]
 
 
 class ChatRequest(BaseModel):
     """Payload received from the chat endpoint."""
 
     message: str = Field(..., min_length=1, description="Natural-language user question.")
+    mode: QueryMode | None = Field(
+        default=None,
+        description="Override retrieval profile. If omitted, inferred from the question.",
+    )
 
 
 class RetrievedSourceChunk(BaseModel):

@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from llama_index.core import Document
-from llama_index.readers.file import PDFReader
+from llama_index.core import Document, SimpleDirectoryReader
 
 
 def load_pdf_manuals(manuals_dir: Path) -> list[Document]:
@@ -9,13 +8,9 @@ def load_pdf_manuals(manuals_dir: Path) -> list[Document]:
     if not manuals_dir.is_dir():
         return []
 
-    reader = PDFReader()
-    documents: list[Document] = []
-    for path in sorted(manuals_dir.glob("*.pdf")):
-        for doc in reader.load_data(file=path):
-            meta = dict(doc.metadata or {})
-            meta.setdefault("file_name", path.name)
-            doc.metadata = meta
-            documents.append(doc)
-
-    return documents
+    reader = SimpleDirectoryReader(
+        input_dir=str(manuals_dir),
+        required_exts=[".pdf"],
+        recursive=False,
+    )
+    return reader.load_data()
