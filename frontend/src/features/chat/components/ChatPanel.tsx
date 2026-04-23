@@ -7,7 +7,7 @@ export function ChatPanel() {
   const { activeTitle, messages, isNewDiagnosisSession, isChatLoading } = useChatWorkspace();
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
+    <div className="flex min-h-0 flex-1 flex-col bg-white">
       <ChatThreadHeader title={activeTitle} />
       <ChatMessageList
         messages={messages}

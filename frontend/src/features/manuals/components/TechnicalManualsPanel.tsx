@@ -10,8 +10,8 @@ type TechnicalManualsPanelProps = {
 
 function ManualsHeader() {
   return (
-    <header className="shrink-0 border-b border-border bg-white px-6 py-3.5">
-      <h1 className="truncate text-lg font-semibold tracking-tight text-text-primary">
+    <header className="shrink-0 border-b border-border bg-white px-4 py-3 sm:px-6 sm:py-3.5">
+      <h1 className="truncate text-base font-semibold tracking-tight text-text-primary sm:text-lg">
         Manuales técnicos
       </h1>
       <p className="mt-0.5 truncate text-sm text-text-secondary">
@@ -78,10 +78,12 @@ function ManualCard({ manual, onRemove }: ManualCardProps) {
         </div>
       </div>
 
+      {/* Desktop hover overlay */}
       <div
         className={cn(
-          "pointer-events-none absolute inset-0 flex items-center justify-center gap-2 rounded-xl bg-white/90 opacity-0 backdrop-blur-[2px] transition-opacity duration-200",
+          "pointer-events-none absolute inset-0 hidden items-center justify-center gap-2 rounded-xl bg-white/90 opacity-0 backdrop-blur-[2px] transition-opacity duration-200",
           "group-hover:pointer-events-auto group-hover:opacity-100",
+          "sm:flex",
         )}
       >
         <button
@@ -112,6 +114,37 @@ function ManualCard({ manual, onRemove }: ManualCardProps) {
           <Trash2 className="size-4" strokeWidth={2} aria-hidden />
         </button>
       </div>
+
+      {/* Mobile action buttons - always visible */}
+      <div className="mt-auto flex items-center gap-2 border-t border-border pt-3 sm:hidden">
+        <button
+          type="button"
+          onClick={openPreview}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-white py-2 text-xs font-medium text-text-primary shadow-sm transition-colors hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus"
+          aria-label={`Ver ${manual.title}`}
+        >
+          <Eye className="size-3.5" strokeWidth={2} aria-hidden />
+          Ver
+        </button>
+        <a
+          href={manual.url}
+          download={manual.fileName}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-white py-2 text-xs font-medium text-text-primary shadow-sm transition-colors hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus"
+          aria-label={`Descargar ${manual.title}`}
+        >
+          <Download className="size-3.5" strokeWidth={2} aria-hidden />
+          Descargar
+        </a>
+        <button
+          type="button"
+          onClick={confirmRemove}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-white py-2 text-xs font-medium text-error shadow-sm transition-colors hover:border-error hover:bg-error/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus"
+          aria-label={`Eliminar ${manual.title}`}
+        >
+          <Trash2 className="size-3.5" strokeWidth={2} aria-hidden />
+          Eliminar
+        </button>
+      </div>
     </div>
   );
 }
@@ -127,9 +160,9 @@ export function TechnicalManualsPanel({ removedIds, onRemoveManual }: TechnicalM
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
+    <div className="flex min-h-0 flex-1 flex-col bg-white">
       <ManualsHeader />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background px-6 py-6">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background px-4 py-4 sm:px-6 sm:py-6">
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <AddManualCard onClick={handleAddPlaceholder} />
           {manuals.map((manual) => (
