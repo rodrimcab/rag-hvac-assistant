@@ -1,16 +1,14 @@
 import re
 
 from llama_index.core import VectorStoreIndex
-from llama_index.core.node_parser import SentenceSplitter
 
 from app.core.config import Settings
 from app.rag.embeddings import build_embedding_model
 from app.rag.llm import build_llm
 from app.rag.postprocessors import SkipEmptyNodePostprocessor
 from app.rag.prompts import TEXT_QA_TEMPLATE
-from app.rag.vector_store import build_chroma_vector_index
+from app.rag.vector_store import open_chroma_index
 from app.schemas.chat import QueryMode, RAGQueryResult, RetrievedSourceChunk
-from app.services.indexing_service import IndexingService
 
 _ERROR_CODE_PATTERN = re.compile(r"\b[a-z]{1,2}\d{1,3}\b", re.IGNORECASE)
 # "error" omitted intentionally — too generic in HVAC diagnosis context.
@@ -18,23 +16,28 @@ _ERROR_CODE_KEYWORDS = ("código", "codigo", "code fault", "fault code")
 
 
 class RAGService:
-    """RAG orchestrator: ChromaDB-backed index + dynamic retrieval per query intent."""
+    """
+    Serves RAG queries from an existing ChromaDB collection.
 
-    def __init__(self, settings: Settings, indexing_service: IndexingService) -> None:
+    This service only reads — it never ingests documents. Ingestion is handled
+    exclusively by ``IngestService``. If the collection is empty, ``query()``
+    raises a ``ValueError`` with a user-facing message.
+    """
+
+    def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._indexing = indexing_service
         self._index: VectorStoreIndex | None = None
 
     def invalidate_index(self) -> None:
+        """Drop the cached index so the next query reloads from ChromaDB."""
         self._index = None
 
-    def _ensure_models(self) -> None:
+    def _ensure_api_key(self) -> None:
         if not self._settings.google_api_key:
             import os
-
             if not os.getenv("GOOGLE_API_KEY"):
                 raise ValueError(
-                    "Missing Google API key: set `google_api_key` / `GOOGLE_API_KEY` in the environment."
+                    "Missing Google API key: set GOOGLE_API_KEY in the environment."
                 )
 
     def _infer_mode(self, question: str) -> QueryMode:
@@ -50,38 +53,15 @@ class RAGService:
             return self._settings.rag_error_code_top_k, "compact"
         return self._settings.rag_diagnosis_top_k, "tree_summarize"
 
-    def build_index(self, *, show_progress: bool = False) -> VectorStoreIndex:
-        self._ensure_models()
-        embed_model = build_embedding_model(self._settings)
-        splitter = SentenceSplitter(
-            chunk_size=self._settings.rag_chunk_size,
-            chunk_overlap=self._settings.rag_chunk_overlap,
-        )
-
-        documents = self._indexing.load_manual_documents()
-        persist_path = self._settings.chroma_db_absolute_path
-        has_persisted = persist_path.is_dir() and any(persist_path.iterdir())
-
-        if not documents and not has_persisted:
-            raise ValueError(
-                f"No PDF manuals found under {self._settings.manuals_path} and no "
-                "persisted Chroma collection to reuse. Add *.pdf files to that directory."
-            )
-
-        self._index = build_chroma_vector_index(
-            persist_path=persist_path,
-            collection_name=self._settings.chroma_collection_name,
-            embed_model=embed_model,
-            documents=documents or None,
-            transformations=[splitter],
-            show_progress=show_progress,
-        )
-        return self._index
-
-    def get_or_build_index(self, *, show_progress: bool = False) -> VectorStoreIndex:
+    def get_index(self) -> VectorStoreIndex:
         if self._index is None:
-            self.build_index(show_progress=show_progress)
-        assert self._index is not None
+            self._ensure_api_key()
+            embed_model = build_embedding_model(self._settings)
+            self._index = open_chroma_index(
+                persist_path=self._settings.chroma_db_absolute_path,
+                collection_name=self._settings.chroma_collection_name,
+                embed_model=embed_model,
+            )
         return self._index
 
     def query(
@@ -96,7 +76,7 @@ class RAGService:
         effective_mode: QueryMode = mode or self._infer_mode(question)
         top_k, response_mode = self._retrieval_profile(effective_mode)
 
-        index = self.get_or_build_index()
+        index = self.get_index()
         llm = build_llm(self._settings)
 
         engine = index.as_query_engine(

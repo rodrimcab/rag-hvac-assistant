@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     # ChromaDB persistence (relative to `backend/`).
     chroma_db_path: str = "./chroma_db"
     chroma_collection_name: str = "hvac_manuals"
+    # Upload limits.
+    max_upload_mb: int = 50
 
     @field_validator("cors_origins", mode="before")
     @classmethod
