@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { postChat } from "../services/chatApi";
 import { getMockMessagesForThread } from "../services/message.service";
 import { getMockThreads } from "../services/thread.service";
 import type { ChatAttachment, ChatMessage } from "../types/message.types";
@@ -22,6 +23,8 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>("1");
   const [extraByThread, setExtraByThread] = useState<Record<string, ChatMessage[]>>({});
   const [newDiagnosisFocusNonce, setNewDiagnosisFocusNonce] = useState(0);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   const baseMessages = useMemo(
     () => (selectedThreadId ? getMockMessagesForThread(selectedThreadId) : []),
@@ -46,17 +49,22 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
     setNewDiagnosisFocusNonce((n) => n + 1);
   }, []);
 
+  const clearChatError = useCallback(() => {
+    setChatError(null);
+  }, []);
+
   const sendUserMessage = useCallback(
-    (text: string, attachments: ChatAttachment[] = []) => {
+    async (text: string, attachments: ChatAttachment[] = []): Promise<boolean> => {
       const trimmed = text.trim();
       const list = attachments.length ? attachments : undefined;
-      if (!trimmed && !list?.length) return;
+      if (!trimmed && !list?.length) return false;
 
       const titleSource = trimmed || attachments[0]?.name || "Nuevo diagnóstico";
+      const now = new Date();
+      let targetThreadId: string;
 
       if (!selectedThreadId) {
-        const newId = `thread-${Date.now()}`;
-        const now = new Date();
+        targetThreadId = `thread-${now.getTime()}`;
         const userMsg: ChatMessage = {
           id: `local-${now.getTime()}-u`,
           role: "user",
@@ -65,28 +73,73 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
           ...(list ? { attachments: list } : {}),
         };
         setThreads((prev) => [
-          { id: newId, title: truncateThreadTitle(titleSource), updatedAt: now },
+          { id: targetThreadId, title: truncateThreadTitle(titleSource), updatedAt: now },
           ...prev,
         ]);
         setExtraByThread((prev) => ({
           ...prev,
-          [newId]: [userMsg],
+          [targetThreadId]: [userMsg],
         }));
-        setSelectedThreadId(newId);
-        return;
+        setSelectedThreadId(targetThreadId);
+      } else {
+        targetThreadId = selectedThreadId;
+        const userMsg: ChatMessage = {
+          id: `local-${now.getTime()}-u`,
+          role: "user",
+          content: trimmed,
+          createdAt: now,
+          ...(list ? { attachments: list } : {}),
+        };
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === targetThreadId ? { ...t, updatedAt: now } : t,
+          ),
+        );
+        setExtraByThread((prev) => ({
+          ...prev,
+          [targetThreadId]: [...(prev[targetThreadId] ?? []), userMsg],
+        }));
       }
 
-      const msg: ChatMessage = {
-        id: `local-${Date.now()}`,
-        role: "user",
-        content: trimmed,
-        createdAt: new Date(),
-        ...(list ? { attachments: list } : {}),
-      };
-      setExtraByThread((prev) => ({
-        ...prev,
-        [selectedThreadId]: [...(prev[selectedThreadId] ?? []), msg],
-      }));
+      if (!trimmed.length) {
+        setChatError(
+          "Para consultar al asistente necesitás escribir una pregunta. Los adjuntos aún no se envían al backend.",
+        );
+        return false;
+      }
+
+      setIsChatLoading(true);
+      setChatError(null);
+      try {
+        const { answer, sources: rawSources } = await postChat(trimmed);
+        const sources = rawSources ?? [];
+        const assistantMsg: ChatMessage = {
+          id: `local-${Date.now()}-a`,
+          role: "assistant",
+          content: answer,
+          createdAt: new Date(),
+          ...(sources.length ? { sources } : {}),
+        };
+        setExtraByThread((prev) => ({
+          ...prev,
+          [targetThreadId]: [...(prev[targetThreadId] ?? []), assistantMsg],
+        }));
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === targetThreadId ? { ...t, updatedAt: new Date() } : t,
+          ),
+        );
+        return true;
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "No se pudo obtener respuesta. Verificá que el backend esté en ejecución.";
+        setChatError(message);
+        return false;
+      } finally {
+        setIsChatLoading(false);
+      }
     },
     [selectedThreadId],
   );
@@ -102,6 +155,9 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
       newDiagnosisFocusNonce,
       startNewDiagnosis,
       sendUserMessage,
+      isChatLoading,
+      chatError,
+      clearChatError,
     }),
     [
       threads,
@@ -112,6 +168,9 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
       newDiagnosisFocusNonce,
       startNewDiagnosis,
       sendUserMessage,
+      isChatLoading,
+      chatError,
+      clearChatError,
     ],
   );
 

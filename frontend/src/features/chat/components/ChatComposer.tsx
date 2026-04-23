@@ -1,4 +1,4 @@
-import { ArrowUp, Camera, FileText, ImageIcon, Plus } from "lucide-react";
+import { ArrowUp, Camera, FileText, ImageIcon, Loader2, Plus } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../../../lib/cn";
 import { useChatWorkspace } from "../hooks/useChatWorkspace";
@@ -34,7 +34,8 @@ function filesToAttachments(files: File[]): ChatAttachment[] {
 }
 
 export function ChatComposer() {
-  const { sendUserMessage, newDiagnosisFocusNonce } = useChatWorkspace();
+  const { sendUserMessage, newDiagnosisFocusNonce, isChatLoading, chatError, clearChatError } =
+    useChatWorkspace();
   const [draft, setDraft] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -107,15 +108,25 @@ export function ChatComposer() {
     });
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const trimmed = draft.trim();
     if (!trimmed && pendingAttachments.length === 0) return;
-    sendUserMessage(draft, pendingAttachments);
-    setDraft("");
-    setPendingAttachments([]);
+    if (isChatLoading) return;
+    clearChatError();
+    const text = draft;
+    const attachments = pendingAttachments;
+    if (trimmed.length > 0) {
+      setDraft("");
+    }
+    const ok = await sendUserMessage(text, attachments);
+    if (ok) {
+      attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+      setPendingAttachments([]);
+    }
   };
 
-  const canSend = draft.trim().length > 0 || pendingAttachments.length > 0;
+  const canSend =
+    (draft.trim().length > 0 || pendingAttachments.length > 0) && !isChatLoading;
 
   return (
     <div className="shrink-0 border-t border-border bg-white px-4 pb-2 pt-3">
@@ -128,6 +139,22 @@ export function ChatComposer() {
       ) : null}
 
       <div className="relative mx-auto max-w-3xl">
+        {chatError ? (
+          <div
+            role="alert"
+            className="mb-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
+          >
+            <span className="min-w-0 flex-1 leading-snug">{chatError}</span>
+            <button
+              type="button"
+              className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium text-red-800 hover:bg-red-100"
+              onClick={() => clearChatError()}
+            >
+              Cerrar
+            </button>
+          </div>
+        ) : null}
+
         <div className="rounded-2xl border border-border bg-background/50 shadow-sm">
           {pendingAttachments.length > 0 ? (
             <div className="rounded-t-2xl border-b border-border/60 bg-white/90 px-3 py-2">
@@ -142,11 +169,14 @@ export function ChatComposer() {
           <textarea
             ref={textareaRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              if (chatError) clearChatError();
+              setDraft(e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (canSend) handleSend();
+                if (canSend) void handleSend();
               }
             }}
             placeholder="Describí el síntoma o código de error..."
@@ -224,9 +254,10 @@ export function ChatComposer() {
 
             <button
               type="button"
-              aria-label="Enviar mensaje"
+              aria-label={isChatLoading ? "Consultando manuales" : "Enviar mensaje"}
+              aria-busy={isChatLoading}
               disabled={!canSend}
-              onClick={handleSend}
+              onClick={() => void handleSend()}
               className={cn(
                 "flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-sm transition-colors",
                 "hover:bg-primary-hover active:bg-primary-active",
@@ -234,7 +265,11 @@ export function ChatComposer() {
                 "disabled:pointer-events-none disabled:opacity-40",
               )}
             >
-              <ArrowUp className="size-4" strokeWidth={2.5} />
+              {isChatLoading ? (
+                <Loader2 className="size-4 animate-spin" strokeWidth={2.5} aria-hidden />
+              ) : (
+                <ArrowUp className="size-4" strokeWidth={2.5} />
+              )}
             </button>
           </div>
         </div>
