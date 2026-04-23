@@ -3,7 +3,7 @@ from app.schemas.document import ManualDocumentInfo
 
 
 class DocumentService:
-    """Read-only discovery of manuals under ``data/manuals``."""
+    """Read-only discovery of PDF manuals stored on disk."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -13,6 +13,10 @@ class DocumentService:
         if not path.is_dir():
             return []
         return [
-            ManualDocumentInfo(file_name=p.name, absolute_path=str(p.resolve()))
+            ManualDocumentInfo(
+                file_name=p.name,
+                size_bytes=p.stat().st_size,
+                absolute_path=str(p.resolve()),
+            )
             for p in sorted(path.glob("*.pdf"))
         ]
