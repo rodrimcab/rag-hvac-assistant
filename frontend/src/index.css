@@ -39,3 +39,16 @@ body {
 #root {
   min-height: 100dvh;
 }
+
+@keyframes typing-dot {
+  0%,
+  70%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}

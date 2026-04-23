@@ -3,11 +3,13 @@ import { useAuth } from "../../../hooks/useAuth";
 import type { ChatMessage } from "../types/message.types";
 import { formatDaySeparatorLabel } from "../utils/formatDaySeparatorLabel";
 import { sameCalendarDay } from "../utils/sameCalendarDay";
+import { ChatAssistantTypingPlaceholder } from "./ChatAssistantTypingPlaceholder";
 import { ChatMessageBubble } from "./ChatMessageBubble";
 
 type ChatMessageListProps = {
   messages: ChatMessage[];
   isNewDiagnosisSession?: boolean;
+  isAssistantLoading?: boolean;
 };
 
 function DaySeparator({ date }: { date: Date }) {
@@ -20,7 +22,11 @@ function DaySeparator({ date }: { date: Date }) {
   );
 }
 
-export function ChatMessageList({ messages, isNewDiagnosisSession }: ChatMessageListProps) {
+export function ChatMessageList({
+  messages,
+  isNewDiagnosisSession,
+  isAssistantLoading = false,
+}: ChatMessageListProps) {
   const { user } = useAuth();
   const initials = user?.initials ?? "?";
 
@@ -49,6 +55,7 @@ export function ChatMessageList({ messages, isNewDiagnosisSession }: ChatMessage
           </Fragment>
         );
       })}
+      {isAssistantLoading ? <ChatAssistantTypingPlaceholder /> : null}
     </div>
   );
 }

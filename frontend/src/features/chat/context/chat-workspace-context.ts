@@ -11,7 +11,14 @@ export type ChatWorkspaceContextValue = {
   isNewDiagnosisSession: boolean;
   newDiagnosisFocusNonce: number;
   startNewDiagnosis: () => void;
-  sendUserMessage: (text: string, attachments?: ChatAttachment[]) => void;
+  /**
+   * Sends the user message, then requests an assistant reply from `POST /api/chat`.
+   * Resolves `true` if the assistant reply was stored; `false` if nothing was sent or the request failed.
+   */
+  sendUserMessage: (text: string, attachments?: ChatAttachment[]) => Promise<boolean>;
+  isChatLoading: boolean;
+  chatError: string | null;
+  clearChatError: () => void;
 };
 
 export const ChatWorkspaceContext = createContext<ChatWorkspaceContextValue | null>(null);
