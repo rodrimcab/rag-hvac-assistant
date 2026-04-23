@@ -180,7 +180,7 @@ export function CameraCaptureModal({ open, onClose, onPhoto }: CameraCaptureModa
 
   const modal = (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -197,7 +197,7 @@ export function CameraCaptureModal({ open, onClose, onPhoto }: CameraCaptureModa
 
       <div
         className={cn(
-          "relative z-[1] flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-xl",
+          "relative z-[1] flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-xl max-h-[85dvh]",
         )}
         onClick={(e) => e.stopPropagation()}
       >

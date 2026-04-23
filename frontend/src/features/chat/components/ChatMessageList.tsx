@@ -26,7 +26,7 @@ export function ChatMessageList({ messages, isNewDiagnosisSession }: ChatMessage
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center sm:px-6">
         <p className="max-w-sm text-sm leading-relaxed text-text-secondary">
           {isNewDiagnosisSession
             ? "Describí el síntoma, el modelo del equipo o el código de error para iniciar un diagnóstico nuevo."
@@ -37,7 +37,7 @@ export function ChatMessageList({ messages, isNewDiagnosisSession }: ChatMessage
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 py-3 sm:px-4 sm:py-4">
       {messages.map((message, index) => {
         const prev = messages[index - 1];
         const showSeparator = !prev || !sameCalendarDay(prev.createdAt, message.createdAt);

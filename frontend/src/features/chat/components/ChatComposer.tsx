@@ -118,7 +118,7 @@ export function ChatComposer() {
   const canSend = draft.trim().length > 0 || pendingAttachments.length > 0;
 
   return (
-    <div className="shrink-0 border-t border-border bg-white px-4 pb-2 pt-3">
+    <div className="shrink-0 border-t border-border bg-white px-2 pb-2 pt-3 sm:px-4">
       {cameraOpen ? (
         <CameraCaptureModal
           open={cameraOpen}
