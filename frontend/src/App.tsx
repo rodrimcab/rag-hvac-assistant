@@ -1,29 +1,17 @@
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { ChatPanel } from "./features/chat/components/ChatPanel";
 import { TechnicalManualsPanel } from "./features/manuals/components/TechnicalManualsPanel";
-import { SAMPLE_MANUALS } from "./features/manuals/sample-manuals";
 import { MobileSidebarProvider } from "./components/providers/MobileSidebarProvider";
+import { useManuals } from "./features/manuals/hooks/useManuals";
 
 type WorkspaceView = "chat" | "manuals";
 
 function App() {
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("chat");
-  const [removedManualIds, setRemovedManualIds] = useState<Set<string>>(() => new Set());
+  const { manuals, ingestStatus, isLoading, error, upload, remove } = useManuals();
 
-  const manualsCount = SAMPLE_MANUALS.length - removedManualIds.size;
-
-  const handleRemoveManual = useCallback((id: string) => {
-    setRemovedManualIds((prev) => new Set(prev).add(id));
-  }, []);
-
-  const manualsPanelProps = useMemo(
-    () => ({
-      removedIds: removedManualIds,
-      onRemoveManual: handleRemoveManual,
-    }),
-    [removedManualIds, handleRemoveManual],
-  );
+  const manualsCount = manuals.filter((m) => m.indexed).length;
 
   return (
     <div className="h-[100dvh] min-h-0 bg-background font-sans text-text-primary antialiased">
@@ -38,7 +26,14 @@ function App() {
           {workspaceView === "chat" ? (
             <ChatPanel />
           ) : (
-            <TechnicalManualsPanel {...manualsPanelProps} />
+            <TechnicalManualsPanel
+              manuals={manuals}
+              ingestStatus={ingestStatus}
+              isLoading={isLoading}
+              error={error}
+              onUpload={upload}
+              onRemove={remove}
+            />
           )}
         </AppShell>
       </MobileSidebarProvider>
