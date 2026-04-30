@@ -1,12 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { ChatPanel } from "./features/chat/components/ChatPanel";
 import { ManualIngestBlockingLayer } from "./features/manuals/components/ManualIngestBlockingLayer";
 import { TechnicalManualsPanel } from "./features/manuals/components/TechnicalManualsPanel";
 import { MobileSidebarProvider } from "./components/providers/MobileSidebarProvider";
 import { useManuals } from "./features/manuals/hooks/useManuals";
-
-type WorkspaceView = "chat" | "manuals";
+import { getPersistedAppState, updatePersistedAppState, type WorkspaceView } from "./lib/persistedAppState";
 
 function inferBrandFromFilename(fileName: string): string {
   const stem = fileName.replace(/\.pdf$/i, "").replace(/^\d+_ServiceManual_/, "");
@@ -14,7 +13,13 @@ function inferBrandFromFilename(fileName: string): string {
 }
 
 function App() {
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("chat");
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(
+    () => getPersistedAppState().workspaceView,
+  );
+
+  useEffect(() => {
+    updatePersistedAppState((prev) => ({ ...prev, workspaceView }));
+  }, [workspaceView]);
   const {
     manuals,
     ingestStatus,

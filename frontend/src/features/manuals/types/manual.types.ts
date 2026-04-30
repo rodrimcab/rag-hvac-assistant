@@ -11,7 +11,7 @@ export type IngestStatus = {
   chunks_done: number;
   error_message: string | null;
   /** Backend phase while ``status === "processing"``. */
-  ingest_step?: "reading_pages" | "building_index" | null;
+  ingest_step?: "validating" | "reading_pages" | "chunking" | "indexing" | null;
 };
 
 export type UploadAcceptedResponse = {

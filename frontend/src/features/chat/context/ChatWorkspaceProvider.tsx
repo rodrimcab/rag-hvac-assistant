@@ -1,4 +1,10 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  getPersistedAppState,
+  hydrateChatFromStorage,
+  serializeChatSlice,
+  updatePersistedAppState,
+} from "../../../lib/persistedAppState";
 import { postChat } from "../services/chatApi";
 import type { ChatAttachment, ChatMessage } from "../types/message.types";
 import type { ChatThread } from "../types/thread.types";
@@ -16,9 +22,12 @@ function truncateThreadTitle(text: string, max = 52): string {
 }
 
 export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) {
-  const [threads, setThreads] = useState<ChatThread[]>([]);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-  const [extraByThread, setExtraByThread] = useState<Record<string, ChatMessage[]>>({});
+  const initialChat = useMemo(() => hydrateChatFromStorage(getPersistedAppState().chat), []);
+  const [threads, setThreads] = useState<ChatThread[]>(initialChat.threads);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(initialChat.selectedThreadId);
+  const [extraByThread, setExtraByThread] = useState<Record<string, ChatMessage[]>>(
+    initialChat.extraByThread,
+  );
   const [newDiagnosisFocusNonce, setNewDiagnosisFocusNonce] = useState(0);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -34,6 +43,13 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
   }, [threads, selectedThreadId]);
 
   const isNewDiagnosisSession = selectedThreadId === null;
+
+  useEffect(() => {
+    updatePersistedAppState((prev) => ({
+      ...prev,
+      chat: serializeChatSlice(threads, selectedThreadId, extraByThread),
+    }));
+  }, [threads, selectedThreadId, extraByThread]);
 
   const startNewDiagnosis = useCallback(() => {
     setSelectedThreadId(null);

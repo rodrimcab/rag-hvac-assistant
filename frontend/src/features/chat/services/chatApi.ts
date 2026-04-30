@@ -33,15 +33,12 @@ async function readErrorMessage(res: Response): Promise<string> {
 }
 
 function mapHttpError(status: number, detail: string): string {
-  if (status === 429) return "Límite temporal alcanzado en el proveedor IA. Intenta nuevamente en unos segundos.";
+  if (status === 429) return "El asistente está recibiendo muchas consultas. Intenta nuevamente en unos minutos.";
   if (status === 400 && detail.toLowerCase().includes("manuales indexados")) {
     return "No hay manuales indexados todavía. Sube un PDF en Manuales técnicos para empezar.";
   }
-  if (status === 400 && detail.toLowerCase().includes("api key")) {
-    return "Falta configurar GOOGLE_API_KEY en el backend.";
-  }
   if (status >= 500) {
-    return "El backend devolvió un error interno. Revisa logs del servidor e intenta otra vez.";
+    return "El asistente no está disponible en este momento. Intenta nuevamente en unos minutos.";
   }
   return detail;
 }
@@ -96,6 +93,6 @@ export async function postChat(message: string, options?: PostChatOptions): Prom
       }
       throw err;
     }
-    throw new Error("No se pudo obtener respuesta. Verifica que el backend esté en ejecución.");
+    throw new Error("No pudimos conectar con el asistente. Revisa tu conexión e intenta nuevamente.");
   }
 }

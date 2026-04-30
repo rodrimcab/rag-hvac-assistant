@@ -1,4 +1,4 @@
-import { Check, Circle, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Circle, Loader2 } from "lucide-react";
 import { cn } from "../../../lib/cn";
 import type { IngestStatus } from "../types/manual.types";
 
@@ -52,28 +52,58 @@ function StepRow({
   );
 }
 
-function stepVisual(current: number, index: 1 | 2 | 3 | 4 | 5): StepVisual {
-  if (current < index) return "pending";
-  if (current === index) return "active";
-  return "done";
-}
+function getRowVisual(
+  row: 1 | 2 | 3 | 4 | 5 | 6 | 7,
+  p: {
+    isUploadingFile: boolean;
+    ingestStatus: IngestStatus;
+    completionHold: boolean;
+  },
+): StepVisual {
+  const { isUploadingFile, ingestStatus, completionHold } = p;
 
-/**
- * Phases 1–5 for the import UX. ``0`` = not started (should not render dock).
- */
-function derivePhase(
-  isUploadingFile: boolean,
-  ingestStatus: IngestStatus,
-  completionHold: boolean,
-): number {
-  if (ingestStatus.status === "error") return -1;
-  if (completionHold || ingestStatus.status === "done") return 5;
-  if (isUploadingFile) return 1;
-  if (ingestStatus.status !== "processing") return 0;
-  if (ingestStatus.ingest_step === "building_index") return 4;
-  if (ingestStatus.ingest_step === "reading_pages" && ingestStatus.chunks_total > 0) return 3;
-  // Processing, still waiting for first page batch or server thread start
-  return 2;
+  if (ingestStatus.status === "done" || completionHold) {
+    return "done";
+  }
+
+  if (isUploadingFile) {
+    if (row === 1) return "active";
+    return "pending";
+  }
+
+  const step = ingestStatus.ingest_step;
+  if (ingestStatus.status !== "processing") {
+    return "pending";
+  }
+
+  if (row === 1) return "done";
+
+  if (row === 2) {
+    if (step === "validating" || step === null) return "active";
+    return "done";
+  }
+
+  if (row === 3) {
+    if (step === "reading_pages") return "active";
+    if (step === "validating" || step === null) return "pending";
+    return "done";
+  }
+
+  if (row === 4) {
+    if (step === "chunking") return "active";
+    if (step === "validating" || step === null || step === "reading_pages") return "pending";
+    return "done";
+  }
+
+  if (row === 5 || row === 6) {
+    if (step === "indexing") return "active";
+    if (step === "validating" || step === null || step === "reading_pages" || step === "chunking") {
+      return "pending";
+    }
+    return "done";
+  }
+
+  return "pending";
 }
 
 export function ManualImportProgressDock({
@@ -83,14 +113,21 @@ export function ManualImportProgressDock({
   completionHold,
 }: ManualImportProgressDockProps) {
   const name = filename?.trim() || "Manual";
-  const phase = derivePhase(isUploadingFile, ingestStatus, completionHold);
   const isError = ingestStatus.status === "error";
+  const ctx = { isUploadingFile, ingestStatus, completionHold };
 
   const pageHint =
     ingestStatus.status === "processing" &&
     ingestStatus.ingest_step === "reading_pages" &&
     ingestStatus.chunks_total > 0
       ? `Página ${ingestStatus.chunks_done} de ${ingestStatus.chunks_total}`
+      : null;
+
+  const fragmentHint =
+    ingestStatus.status === "processing" &&
+    ingestStatus.ingest_step === "indexing" &&
+    ingestStatus.chunks_total > 0
+      ? `${ingestStatus.chunks_total} fragmento${ingestStatus.chunks_total === 1 ? "" : "s"} a vectorizar`
       : null;
 
   return (
@@ -103,46 +140,61 @@ export function ManualImportProgressDock({
       aria-live="polite"
       aria-busy={isUploadingFile || ingestStatus.status === "processing"}
     >
-      <div className="mb-2 flex items-start justify-between gap-2 border-b border-border/70 pb-2">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">Importación</p>
-          <p className="truncate text-sm font-semibold text-text-primary" title={name || undefined}>
-            {name}
-          </p>
-        </div>
+      <div className="mb-3 border-b border-border/70 pb-3">
+        <h2 className="text-sm font-semibold leading-snug text-text-primary">
+          Importando manual al asistente RAG
+        </h2>
+        <p className="mt-1.5 break-words text-xs font-medium leading-snug text-text-secondary whitespace-normal">
+          {name}
+        </p>
       </div>
 
       {isError ? (
-        <p className="rounded-lg bg-error/5 px-3 py-2 text-sm leading-snug text-error">
-          No pudimos terminar de preparar el manual. Esperá un momento y volvé a intentarlo. Si el problema
-          continúa, probá con otro archivo.
-        </p>
+        <div className="flex gap-3 rounded-lg bg-error/5 px-3 py-2.5">
+          <AlertCircle className="mt-0.5 size-5 shrink-0 text-error" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-error">No se pudo completar la indexación</p>
+            <p className="mt-1 text-xs leading-snug text-text-secondary">
+              Revisá si el PDF contiene texto legible o intentá nuevamente.
+            </p>
+          </div>
+        </div>
       ) : (
         <ol className="list-none space-y-0.5 p-0">
           <StepRow
             label="Subiendo el archivo"
-            hint="Enviando el PDF de forma segura."
-            visual={stepVisual(phase, 1)}
+            hint="Guardando el PDF en el sistema."
+            visual={getRowVisual(1, ctx)}
           />
           <StepRow
-            label="Recibiendo el manual"
-            hint="Guardando una copia para el asistente."
-            visual={stepVisual(phase, 2)}
+            label="Validando el documento"
+            hint="Comprobando que el manual pueda procesarse correctamente."
+            visual={getRowVisual(2, ctx)}
           />
           <StepRow
-            label="Revisando el manual página por página"
-            hint={pageHint || "Leyendo el contenido útil de cada página."}
-            visual={stepVisual(phase, 3)}
+            label="Extrayendo el contenido"
+            hint={pageHint || "Leyendo texto y estructura técnica útil."}
+            visual={getRowVisual(3, ctx)}
           />
           <StepRow
-            label="Dejando listo el manual para las consultas"
-            hint="Conectando el contenido con el buscador del asistente."
-            visual={stepVisual(phase, 4)}
+            label="Fragmentando el manual"
+            hint="Preparando bloques de información para consulta."
+            visual={getRowVisual(4, ctx)}
+          />
+          <StepRow
+            label="Generando embeddings"
+            hint="Creando representaciones semánticas del contenido."
+            visual={getRowVisual(5, ctx)}
+          />
+          <StepRow
+            label="Indexando para RAG"
+            hint={fragmentHint || "Conectando el manual al motor de recuperación del asistente."}
+            visual={getRowVisual(6, ctx)}
           />
           <StepRow
             label="¡Listo!"
-            hint="Ya podés hacer preguntas con respaldo de este manual."
-            visual={stepVisual(phase, 5)}
+            hint="Ya podés hacer consultas con respaldo de este manual."
+            visual={getRowVisual(7, ctx)}
           />
         </ol>
       )}

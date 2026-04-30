@@ -118,7 +118,7 @@ export function useManuals(): UseManualsReturn {
         chunks_total: 0,
         chunks_done: 0,
         error_message: null,
-        ingest_step: null,
+        ingest_step: "validating",
       });
       setManuals((prev) => [
         ...prev,

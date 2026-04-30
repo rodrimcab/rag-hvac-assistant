@@ -12,7 +12,7 @@ from app.rag.vector_store import add_documents_to_chroma
 if TYPE_CHECKING:
     from app.services.rag_service import RAGService
 
-IngestStep = Literal["reading_pages", "building_index"]
+IngestStep = Literal["validating", "reading_pages", "chunking", "indexing"]
 
 
 @dataclass
@@ -73,7 +73,7 @@ class IngestService:
             self._state = IngestState(
                 status="processing",
                 filename=pdf_path.name,
-                ingest_step="reading_pages",
+                ingest_step="validating",
             )
 
         try:
@@ -98,6 +98,14 @@ class IngestService:
             if not documents:
                 raise ValueError(f"No se pudo leer el archivo '{pdf_path.name}'.")
 
+            self._state = IngestState(
+                status="processing",
+                filename=pdf_path.name,
+                chunks_total=0,
+                chunks_done=0,
+                ingest_step="chunking",
+            )
+
             splitter = SentenceSplitter(
                 chunk_size=self._settings.rag_chunk_size,
                 chunk_overlap=self._settings.rag_chunk_overlap,
@@ -115,7 +123,7 @@ class IngestService:
                 filename=pdf_path.name,
                 chunks_total=len(nodes),
                 chunks_done=0,
-                ingest_step="building_index",
+                ingest_step="indexing",
             )
 
             embed_model = build_embedding_model(self._settings)
