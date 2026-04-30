@@ -53,6 +53,13 @@ The first call builds an **in-memory** index (re-run after changing manuals, or 
 
 If indexing fails with **429 / RESOURCE_EXHAUSTED** from Google, you hit embedding **rate limits or quota** on a large PDF. Wait a minute and retry, use a smaller manual while developing, or tune `.env`: larger `RAG_CHUNK_SIZE` (up to ~2048 tokens) and lower `EMBEDDING_BATCH_SIZE` to reduce bursts. For sustained load, check [Gemini rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) and billing on your Google AI project.
 
+## Diagram-heavy manuals (Gemini Vision at ingest time)
+
+During **PDF upload / ingestion**, the service renders select pages and calls **Gemini Flash (vision)** to write a searchable text description of schematics and figures. That text is embedded together with the page text so retrieval can answer diagram-related questions without sending images on every chat turn.
+
+- Controlled by `DIAGRAM_VISION_*` settings in `.env` (see `.env.example`). Set `DIAGRAM_VISION_ENABLED=false` to disable extra vision calls.
+- **Re-indexing required**: delete the manual in the UI and upload again (or clear the Chroma collection) so existing vectors pick up `page_number` and diagram descriptions.
+
 ## Try HTTP chat (Phase 3)
 
 With the API running from `backend/`, execute:
@@ -72,7 +79,9 @@ Expected response shape:
     {
       "text": "....",
       "file_name": "Example.pdf",
-      "score": 0.87
+      "score": 0.87,
+      "page_number": 62,
+      "has_diagram_context": true
     }
   ]
 }

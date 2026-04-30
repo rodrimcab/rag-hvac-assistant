@@ -126,8 +126,23 @@ class RAGService:
             if not isinstance(file_name, str):
                 file_name = None
             score = float(node.score) if node.score is not None else None
+            raw_page = meta.get("page_number")
+            page_number: int | None = None
+            if raw_page is not None:
+                try:
+                    pn = int(raw_page)
+                    page_number = pn if pn >= 1 else None
+                except (TypeError, ValueError):
+                    page_number = None
+            has_diagram = bool(meta.get("has_diagram_context", False))
             sources.append(
-                RetrievedSourceChunk(text=node_text, file_name=file_name, score=score)
+                RetrievedSourceChunk(
+                    text=node_text,
+                    file_name=file_name,
+                    score=score,
+                    page_number=page_number,
+                    has_diagram_context=has_diagram,
+                )
             )
 
         return RAGQueryResult(answer=str(response), sources=sources)

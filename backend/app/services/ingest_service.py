@@ -7,9 +7,8 @@ from llama_index.core.node_parser import SentenceSplitter
 
 from app.core.config import Settings
 from app.rag.embeddings import build_embedding_model
+from app.rag.manual_pdf_documents import build_documents_from_pdf
 from app.rag.vector_store import add_documents_to_chroma
-from app.services.indexing_service import IndexingService
-
 if TYPE_CHECKING:
     from app.services.rag_service import RAGService
 
@@ -37,11 +36,9 @@ class IngestService:
     def __init__(
         self,
         settings: Settings,
-        indexing_service: IndexingService,
         rag_service: "RAGService",
     ) -> None:
         self._settings = settings
-        self._indexing = indexing_service
         self._rag = rag_service
         self._state = IngestState()
         self._lock = threading.Lock()
@@ -76,7 +73,23 @@ class IngestService:
             )
 
         try:
-            documents = self._indexing.load_single_pdf(pdf_path)
+            brand = self._extract_brand_from_filename(pdf_path.name)
+
+            def page_progress(done: int, total: int) -> None:
+                self._state = IngestState(
+                    status="processing",
+                    filename=pdf_path.name,
+                    chunks_total=total,
+                    chunks_done=done,
+                )
+
+            documents = build_documents_from_pdf(
+                pdf_path,
+                self._settings,
+                file_name=pdf_path.name,
+                brand=brand,
+                page_progress=page_progress,
+            )
             if not documents:
                 raise ValueError(f"No se pudo leer el archivo '{pdf_path.name}'.")
 
@@ -85,12 +98,11 @@ class IngestService:
                 chunk_overlap=self._settings.rag_chunk_overlap,
             )
             nodes = splitter.get_nodes_from_documents(documents)
-            brand = self._extract_brand_from_filename(pdf_path.name)
             for node in nodes:
                 metadata = dict(node.metadata or {})
-                metadata["file_name"] = pdf_path.name
+                metadata.setdefault("file_name", pdf_path.name)
                 if brand:
-                    metadata["brand"] = brand
+                    metadata.setdefault("brand", brand)
                 node.metadata = metadata
 
             self._state = IngestState(

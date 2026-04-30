@@ -26,6 +26,8 @@ class RetrievedSourceChunk(BaseModel):
     text: str
     file_name: str | None = None
     score: float | None = None
+    page_number: int | None = None
+    has_diagram_context: bool = False
 
 
 class RAGQueryResult(BaseModel):
