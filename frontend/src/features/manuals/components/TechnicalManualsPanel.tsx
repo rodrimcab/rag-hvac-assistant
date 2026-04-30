@@ -1,4 +1,4 @@
-import { AlertCircle, Download, FileText, Loader2, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, Download, FileText, Plus, Trash2 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { getApiBaseUrl } from "../../../lib/apiBaseUrl";
 import { cn } from "../../../lib/cn";
@@ -130,6 +130,7 @@ function ManualCard({ manual, isCurrentlyIngesting, onRemove }: ManualCardProps)
       className={cn(
         "group relative flex min-h-[140px] flex-col rounded-xl border border-border bg-white p-4 transition-shadow",
         "hover:shadow-sm",
+        isCurrentlyIngesting && "ring-2 ring-primary/40 ring-offset-2 ring-offset-background",
       )}
     >
       <div className="flex items-start gap-3">
@@ -146,14 +147,6 @@ function ManualCard({ manual, isCurrentlyIngesting, onRemove }: ManualCardProps)
           </p>
         </div>
       </div>
-
-      {/* Indexing spinner overlay */}
-      {isIndexing && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl bg-white/90 backdrop-blur-[2px]">
-          <Loader2 className="size-6 animate-spin text-primary" />
-          <span className="text-xs font-medium text-text-secondary">Indexando…</span>
-        </div>
-      )}
 
       {/* Desktop hover overlay — hidden on mobile */}
       {!isIndexing && (

@@ -12,6 +12,8 @@ from app.rag.vector_store import add_documents_to_chroma
 if TYPE_CHECKING:
     from app.services.rag_service import RAGService
 
+IngestStep = Literal["reading_pages", "building_index"]
+
 
 @dataclass
 class IngestState:
@@ -20,6 +22,7 @@ class IngestState:
     chunks_total: int = 0
     chunks_done: int = 0
     error_message: str | None = None
+    ingest_step: IngestStep | None = None
 
 
 class IngestService:
@@ -70,6 +73,7 @@ class IngestService:
             self._state = IngestState(
                 status="processing",
                 filename=pdf_path.name,
+                ingest_step="reading_pages",
             )
 
         try:
@@ -81,6 +85,7 @@ class IngestService:
                     filename=pdf_path.name,
                     chunks_total=total,
                     chunks_done=done,
+                    ingest_step="reading_pages",
                 )
 
             documents = build_documents_from_pdf(
@@ -110,6 +115,7 @@ class IngestService:
                 filename=pdf_path.name,
                 chunks_total=len(nodes),
                 chunks_done=0,
+                ingest_step="building_index",
             )
 
             embed_model = build_embedding_model(self._settings)
@@ -127,6 +133,7 @@ class IngestService:
                 filename=pdf_path.name,
                 chunks_total=len(nodes),
                 chunks_done=len(nodes),
+                ingest_step=None,
             )
 
         except Exception as exc:
@@ -134,4 +141,5 @@ class IngestService:
                 status="error",
                 filename=pdf_path.name,
                 error_message=str(exc),
+                ingest_step=None,
             )

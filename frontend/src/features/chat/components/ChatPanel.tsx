@@ -5,9 +5,11 @@ import { ChatThreadHeader } from "./ChatThreadHeader";
 
 type ChatPanelProps = {
   availableBrands: string[];
+  /** While a manual is importing, disable chat actions to avoid mixed workflows. */
+  interactionLocked?: boolean;
 };
 
-export function ChatPanel({ availableBrands }: ChatPanelProps) {
+export function ChatPanel({ availableBrands, interactionLocked = false }: ChatPanelProps) {
   const {
     activeTitle,
     messages,
@@ -21,7 +23,7 @@ export function ChatPanel({ availableBrands }: ChatPanelProps) {
     <div className="flex min-h-0 flex-1 flex-col bg-white">
       <ChatThreadHeader
         title={activeTitle}
-        canRename={Boolean(selectedThreadId)}
+        canRename={Boolean(selectedThreadId) && !interactionLocked}
         onRename={renameSelectedThread}
       />
       <ChatMessageList
@@ -29,7 +31,7 @@ export function ChatPanel({ availableBrands }: ChatPanelProps) {
         isNewDiagnosisSession={isNewDiagnosisSession}
         isAssistantLoading={isChatLoading}
       />
-      <ChatComposer availableBrands={availableBrands} />
+      <ChatComposer availableBrands={availableBrands} interactionLocked={interactionLocked} />
     </div>
   );
 }

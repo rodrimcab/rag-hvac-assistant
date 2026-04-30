@@ -34,3 +34,5 @@ class IngestStatusResponse(BaseModel):
     chunks_total: int = 0
     chunks_done: int = 0
     error_message: str | None = None
+    # Present only while ``status == "processing"`` — helps the UI show clear phases.
+    ingest_step: Literal["reading_pages", "building_index"] | None = None

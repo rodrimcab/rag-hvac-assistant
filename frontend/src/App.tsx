@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { ChatPanel } from "./features/chat/components/ChatPanel";
+import { ManualIngestBlockingLayer } from "./features/manuals/components/ManualIngestBlockingLayer";
 import { TechnicalManualsPanel } from "./features/manuals/components/TechnicalManualsPanel";
 import { MobileSidebarProvider } from "./components/providers/MobileSidebarProvider";
 import { useManuals } from "./features/manuals/hooks/useManuals";
@@ -14,7 +15,18 @@ function inferBrandFromFilename(fileName: string): string {
 
 function App() {
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("chat");
-  const { manuals, ingestStatus, isLoading, error, upload, remove } = useManuals();
+  const {
+    manuals,
+    ingestStatus,
+    isLoading,
+    error,
+    upload,
+    remove,
+    manualsWorkflowLocked,
+    isUploadingFile,
+    uploadDisplayName,
+    completionHold,
+  } = useManuals();
 
   const manualsCount = manuals.filter((m) => m.indexed).length;
   const availableBrands = Array.from(
@@ -32,22 +44,31 @@ function App() {
         <AppShell
           manualsCount={manualsCount}
           manualsNavActive={workspaceView === "manuals"}
+          navigationLocked={manualsWorkflowLocked}
           onManualsClick={() => setWorkspaceView("manuals")}
           onNewDiagnosis={() => setWorkspaceView("chat")}
           onSelectThread={() => setWorkspaceView("chat")}
         >
-          {workspaceView === "chat" ? (
-            <ChatPanel availableBrands={availableBrands} />
-          ) : (
-            <TechnicalManualsPanel
-              manuals={manuals}
-              ingestStatus={ingestStatus}
-              isLoading={isLoading}
-              error={error}
-              onUpload={upload}
-              onRemove={remove}
-            />
-          )}
+          <ManualIngestBlockingLayer
+            locked={manualsWorkflowLocked}
+            isUploadingFile={isUploadingFile}
+            uploadDisplayName={uploadDisplayName}
+            ingestStatus={ingestStatus}
+            completionHold={completionHold}
+          >
+            {workspaceView === "chat" ? (
+              <ChatPanel availableBrands={availableBrands} interactionLocked={manualsWorkflowLocked} />
+            ) : (
+              <TechnicalManualsPanel
+                manuals={manuals}
+                ingestStatus={ingestStatus}
+                isLoading={isLoading}
+                error={error}
+                onUpload={upload}
+                onRemove={remove}
+              />
+            )}
+          </ManualIngestBlockingLayer>
         </AppShell>
       </MobileSidebarProvider>
     </div>

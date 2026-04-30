@@ -8,6 +8,8 @@ type AppShellProps = {
   children: ReactNode;
   manualsCount: number;
   manualsNavActive: boolean;
+  /** Disables sidebar navigation and mobile menu while a manual is being imported. */
+  navigationLocked?: boolean;
   onManualsClick: () => void;
   onNewDiagnosis: () => void;
   onSelectThread: () => void;
@@ -17,6 +19,7 @@ export function AppShell({
   children,
   manualsCount,
   manualsNavActive,
+  navigationLocked = false,
   onManualsClick,
   onNewDiagnosis,
   onSelectThread,
@@ -50,6 +53,7 @@ export function AppShell({
         )}
         manualsCount={manualsCount}
         manualsNavActive={manualsNavActive}
+        navigationLocked={navigationLocked}
         onManualsClick={() => {
           setOpen(false);
           onManualsClick();
@@ -70,7 +74,13 @@ export function AppShell({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus"
+            disabled={navigationLocked}
+            title={
+              navigationLocked
+                ? "Esperá a que termine la importación del manual para usar el menú."
+                : undefined
+            }
+            className="rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus disabled:pointer-events-none disabled:opacity-40"
             aria-label="Abrir menú"
           >
             <Menu className="size-5" strokeWidth={2} />

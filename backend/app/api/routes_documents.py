@@ -149,6 +149,7 @@ def ingest_status(
         chunks_total=state.chunks_total,
         chunks_done=state.chunks_done,
         error_message=state.error_message,
+        ingest_step=state.ingest_step,
     )
 
 

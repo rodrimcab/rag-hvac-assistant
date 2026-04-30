@@ -35,9 +35,10 @@ function filesToAttachments(files: File[]): ChatAttachment[] {
 
 type ChatComposerProps = {
   availableBrands: string[];
+  interactionLocked?: boolean;
 };
 
-export function ChatComposer({ availableBrands }: ChatComposerProps) {
+export function ChatComposer({ availableBrands, interactionLocked = false }: ChatComposerProps) {
   const { sendUserMessage, newDiagnosisFocusNonce, isChatLoading, chatError, clearChatError } =
     useChatWorkspace();
   const [draft, setDraft] = useState("");
@@ -117,7 +118,7 @@ export function ChatComposer({ availableBrands }: ChatComposerProps) {
   const handleSend = async () => {
     const trimmed = draft.trim();
     if (!trimmed && pendingAttachments.length === 0) return;
-    if (isChatLoading) return;
+    if (isChatLoading || interactionLocked) return;
     clearChatError();
     const text = draft;
     const attachments = pendingAttachments;
@@ -134,10 +135,18 @@ export function ChatComposer({ availableBrands }: ChatComposerProps) {
   };
 
   const canSend =
-    (draft.trim().length > 0 || pendingAttachments.length > 0) && !isChatLoading;
+    (draft.trim().length > 0 || pendingAttachments.length > 0) &&
+    !isChatLoading &&
+    !interactionLocked;
 
   return (
-    <div className="shrink-0 border-t border-border bg-white px-2 pb-2 pt-3 sm:px-4">
+    <div
+      className={cn(
+        "shrink-0 border-t border-border bg-white px-2 pb-2 pt-3 sm:px-4",
+        interactionLocked && "pointer-events-none opacity-50",
+      )}
+      aria-disabled={interactionLocked || undefined}
+    >
       {cameraOpen ? (
         <CameraCaptureModal
           open={cameraOpen}
