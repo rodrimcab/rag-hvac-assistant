@@ -6,6 +6,7 @@ type SidebarSearchInputProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 };
 
 export function SidebarSearchInput({
@@ -13,6 +14,7 @@ export function SidebarSearchInput({
   onChange,
   placeholder = "Buscar chats...",
   className,
+  disabled = false,
 }: SidebarSearchInputProps) {
   return (
     <div className={cn("relative", className)}>
@@ -25,9 +27,11 @@ export function SidebarSearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        disabled={disabled}
         className={cn(
           "w-full rounded-xl border border-border bg-white py-2.5 pl-10 pr-3 text-sm text-text-primary placeholder:text-text-disabled",
           "focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30",
+          "disabled:cursor-not-allowed disabled:bg-surface/80 disabled:opacity-60",
         )}
         autoComplete="off"
       />

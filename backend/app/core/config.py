@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     # most capable tier accessible on Free tier today.
     gemini_llm_model: str = "models/gemini-2.5-flash"
     gemini_llm_temperature: float = 0.1
+    # If unset, diagram vision uses ``gemini_llm_model`` (same billing class as Flash).
+    gemini_vision_model: str | None = None
     gemini_embedding_model: str = "gemini-embedding-001"
     manuals_dir: str = "data/manuals"
     rag_min_node_text_chars: int = 12
@@ -43,11 +45,35 @@ class Settings(BaseSettings):
     # Upload limits.
     max_upload_mb: int = 50
 
+    # ── Diagram / page vision (ingestion only; not used per chat message) ─────
+    diagram_vision_enabled: bool = True
+    diagram_vision_max_pages_per_pdf: int = 45
+    diagram_vision_min_interval_seconds: float = 2.0
+    diagram_vision_temperature: float = 0.15
+    diagram_vision_max_output_tokens: int = 1024
+    diagram_page_render_dpi: float = 140.0
+    diagram_page_image_max_width: int = 1280
+    diagram_jpeg_quality: int = 82
+    # Pages with at least this much extracted text skip vision (text-only chunking is enough).
+    diagram_skip_vision_min_text_chars: int = 2600
+    diagram_vision_min_images: int = 1
+    # Vector-heavy pages (schematics without embedded raster images) still trigger vision.
+    diagram_vision_min_drawings: int = 150
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def strip_origins(cls, v: object) -> object:
         if isinstance(v, str):
             return v.strip()
+        return v
+
+    @field_validator("gemini_vision_model", mode="before")
+    @classmethod
+    def empty_vision_model_to_none(cls, v: object) -> object:
+        if v is None:
+            return None
+        if isinstance(v, str) and not v.strip():
+            return None
         return v
 
     @property

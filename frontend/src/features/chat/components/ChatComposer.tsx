@@ -33,10 +33,16 @@ function filesToAttachments(files: File[]): ChatAttachment[] {
   }));
 }
 
-export function ChatComposer() {
+type ChatComposerProps = {
+  availableBrands: string[];
+  interactionLocked?: boolean;
+};
+
+export function ChatComposer({ availableBrands, interactionLocked = false }: ChatComposerProps) {
   const { sendUserMessage, newDiagnosisFocusNonce, isChatLoading, chatError, clearChatError } =
     useChatWorkspace();
   const [draft, setDraft] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -75,6 +81,7 @@ export function ChatComposer() {
     if (newDiagnosisFocusNonce === 0) return;
     pendingRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
     setPendingAttachments([]);
+    setSelectedBrand("");
     setCameraOpen(false);
     textareaRef.current?.focus();
   }, [newDiagnosisFocusNonce]);
@@ -111,14 +118,16 @@ export function ChatComposer() {
   const handleSend = async () => {
     const trimmed = draft.trim();
     if (!trimmed && pendingAttachments.length === 0) return;
-    if (isChatLoading) return;
+    if (isChatLoading || interactionLocked) return;
     clearChatError();
     const text = draft;
     const attachments = pendingAttachments;
     if (trimmed.length > 0) {
       setDraft("");
     }
-    const ok = await sendUserMessage(text, attachments);
+    const ok = await sendUserMessage(text, attachments, {
+      brand: selectedBrand || undefined,
+    });
     if (ok) {
       attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
       setPendingAttachments([]);
@@ -126,10 +135,18 @@ export function ChatComposer() {
   };
 
   const canSend =
-    (draft.trim().length > 0 || pendingAttachments.length > 0) && !isChatLoading;
+    (draft.trim().length > 0 || pendingAttachments.length > 0) &&
+    !isChatLoading &&
+    !interactionLocked;
 
   return (
-    <div className="shrink-0 border-t border-border bg-white px-2 pb-2 pt-3 sm:px-4">
+    <div
+      className={cn(
+        "shrink-0 border-t border-border bg-white px-2 pb-2 pt-3 sm:px-4",
+        interactionLocked && "pointer-events-none opacity-50",
+      )}
+      aria-disabled={interactionLocked || undefined}
+    >
       {cameraOpen ? (
         <CameraCaptureModal
           open={cameraOpen}
@@ -274,9 +291,29 @@ export function ChatComposer() {
           </div>
         </div>
 
-        <p className="mt-1 text-center text-[11px] leading-snug text-text-secondary">
-          hvac-assistant responde únicamente con base en manuales técnicos oficiales.
-        </p>
+        <div className="mt-1 flex flex-col items-center gap-1 sm:flex-row sm:justify-between">
+          <p className="text-center text-[11px] leading-snug text-text-secondary">
+            hvac-assistant responde únicamente con base en manuales técnicos oficiales.
+          </p>
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="brand-filter" className="text-[11px] text-text-secondary">
+              Marca
+            </label>
+            <select
+              id="brand-filter"
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="rounded-md border border-border bg-white px-2 py-1 text-[11px] text-text-primary focus:border-primary focus:outline-none"
+            >
+              <option value="">Todas</option>
+              {availableBrands.map((brand) => (
+                <option key={brand} value={brand}>
+                  {brand}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <input
           id={imageInputId}

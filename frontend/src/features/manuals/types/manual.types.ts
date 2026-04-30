@@ -10,9 +10,12 @@ export type IngestStatus = {
   chunks_total: number;
   chunks_done: number;
   error_message: string | null;
+  /** Backend phase while ``status === "processing"``. */
+  ingest_step?: "validating" | "reading_pages" | "chunking" | "indexing" | null;
 };
 
 export type UploadAcceptedResponse = {
   filename: string;
   status: "processing";
 };
+

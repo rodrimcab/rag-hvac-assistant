@@ -15,6 +15,8 @@ type AppSidebarProps = {
   className?: string;
   manualsCount: number;
   manualsNavActive?: boolean;
+  /** When true, chat navigation and system nav are disabled (e.g. manual import in progress). */
+  navigationLocked?: boolean;
   onNewDiagnosis?: () => void;
   onManualsClick?: () => void;
   onSelectThread?: () => void;
@@ -25,6 +27,7 @@ export function AppSidebar({
   className,
   manualsCount,
   manualsNavActive,
+  navigationLocked = false,
   onNewDiagnosis,
   onManualsClick,
   onSelectThread,
@@ -47,40 +50,56 @@ export function AppSidebar({
         className,
       )}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-4 p-4",
+          navigationLocked && "opacity-55",
+        )}
+      >
         <div className="flex items-center gap-2">
           <SidebarBrandHeader className="flex-1" />
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus lg:hidden"
+            className={cn(
+              "rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus lg:hidden",
+              navigationLocked && "relative z-20",
+            )}
             aria-label="Cerrar menú"
           >
             <X className="size-5" strokeWidth={2} />
           </button>
         </div>
         <NewDiagnosisButton
+          disabled={navigationLocked}
           onClick={() => {
             startNewDiagnosis();
             onNewDiagnosis?.();
           }}
         />
-        <SidebarSearchInput value={query} onChange={setQuery} />
+        <SidebarSearchInput value={query} onChange={setQuery} disabled={navigationLocked} />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
           <ChatHistoryList
             threads={listThreads}
             selectedId={selectedThreadId}
             onSelect={handleSelectThread}
+            disabled={navigationLocked}
           />
         </div>
       </div>
 
-      <div className="shrink-0 space-y-4 border-t border-border bg-background p-4">
+      <div
+        className={cn(
+          "shrink-0 space-y-4 border-t border-border bg-background p-4",
+          navigationLocked && "pointer-events-none opacity-55",
+        )}
+      >
         <SidebarSystemNav
           manualsCount={manualsCount}
           manualsActive={manualsNavActive}
           onManualsClick={onManualsClick}
           onSettingsClick={onSettingsClick}
+          disabled={navigationLocked}
         />
         <SidebarAccountFooter />
       </div>
