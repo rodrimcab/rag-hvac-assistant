@@ -7,11 +7,24 @@ import { useManuals } from "./features/manuals/hooks/useManuals";
 
 type WorkspaceView = "chat" | "manuals";
 
+function inferBrandFromFilename(fileName: string): string {
+  const stem = fileName.replace(/\.pdf$/i, "").replace(/^\d+_ServiceManual_/, "");
+  return (stem.split("_")[0] || "").trim();
+}
+
 function App() {
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("chat");
   const { manuals, ingestStatus, isLoading, error, upload, remove } = useManuals();
 
   const manualsCount = manuals.filter((m) => m.indexed).length;
+  const availableBrands = Array.from(
+    new Set(
+      manuals
+        .filter((m) => m.indexed)
+        .map((m) => inferBrandFromFilename(m.file_name))
+        .filter((brand) => brand.length > 0),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="h-[100dvh] min-h-0 bg-background font-sans text-text-primary antialiased">
@@ -24,7 +37,7 @@ function App() {
           onSelectThread={() => setWorkspaceView("chat")}
         >
           {workspaceView === "chat" ? (
-            <ChatPanel />
+            <ChatPanel availableBrands={availableBrands} />
           ) : (
             <TechnicalManualsPanel
               manuals={manuals}

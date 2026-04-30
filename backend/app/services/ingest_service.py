@@ -52,6 +52,14 @@ class IngestService:
     def is_busy(self) -> bool:
         return self._state.status == "processing"
 
+    @staticmethod
+    def _extract_brand_from_filename(file_name: str) -> str | None:
+        stem = file_name.removesuffix(".pdf")
+        if "_ServiceManual_" in stem:
+            stem = stem.split("_ServiceManual_", maxsplit=1)[1]
+        brand = stem.split("_", maxsplit=1)[0].strip().lower()
+        return brand or None
+
     def ingest_pdf(self, pdf_path: Path) -> None:
         """
         Embed and store a single PDF in ChromaDB.
@@ -77,6 +85,13 @@ class IngestService:
                 chunk_overlap=self._settings.rag_chunk_overlap,
             )
             nodes = splitter.get_nodes_from_documents(documents)
+            brand = self._extract_brand_from_filename(pdf_path.name)
+            for node in nodes:
+                metadata = dict(node.metadata or {})
+                metadata["file_name"] = pdf_path.name
+                if brand:
+                    metadata["brand"] = brand
+                node.metadata = metadata
 
             self._state = IngestState(
                 status="processing",

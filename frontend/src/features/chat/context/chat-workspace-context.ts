@@ -6,6 +6,7 @@ export type ChatWorkspaceContextValue = {
   threads: ChatThread[];
   selectedThreadId: string | null;
   setSelectedThreadId: (id: string | null) => void;
+  renameSelectedThread: (nextTitle: string) => void;
   messages: ChatMessage[];
   activeTitle: string;
   isNewDiagnosisSession: boolean;
@@ -15,7 +16,11 @@ export type ChatWorkspaceContextValue = {
    * Sends the user message, then requests an assistant reply from `POST /api/chat`.
    * Resolves `true` if the assistant reply was stored; `false` if nothing was sent or the request failed.
    */
-  sendUserMessage: (text: string, attachments?: ChatAttachment[]) => Promise<boolean>;
+  sendUserMessage: (
+    text: string,
+    attachments?: ChatAttachment[],
+    options?: { brand?: string | null },
+  ) => Promise<boolean>;
   isChatLoading: boolean;
   chatError: string | null;
   clearChatError: () => void;

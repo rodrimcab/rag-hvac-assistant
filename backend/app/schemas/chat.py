@@ -13,6 +13,11 @@ class ChatRequest(BaseModel):
         default=None,
         description="Override retrieval profile. If omitted, inferred from the question.",
     )
+    brand: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Optional brand filter (for example: Midea, Daikin, LG).",
+    )
 
 
 class RetrievedSourceChunk(BaseModel):

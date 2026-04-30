@@ -1,7 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { postChat } from "../services/chatApi";
-import { getMockMessagesForThread } from "../services/message.service";
-import { getMockThreads } from "../services/thread.service";
 import type { ChatAttachment, ChatMessage } from "../types/message.types";
 import type { ChatThread } from "../types/thread.types";
 import { ChatWorkspaceContext } from "./chat-workspace-context";
@@ -18,24 +16,17 @@ function truncateThreadTitle(text: string, max = 52): string {
 }
 
 export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) {
-  const [anchor] = useState(() => new Date());
-  const [threads, setThreads] = useState<ChatThread[]>(() => getMockThreads(anchor));
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>("1");
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [extraByThread, setExtraByThread] = useState<Record<string, ChatMessage[]>>({});
   const [newDiagnosisFocusNonce, setNewDiagnosisFocusNonce] = useState(0);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
 
-  const baseMessages = useMemo(
-    () => (selectedThreadId ? getMockMessagesForThread(selectedThreadId) : []),
-    [selectedThreadId],
-  );
-
   const messages = useMemo(() => {
     if (!selectedThreadId) return [];
-    const extra = extraByThread[selectedThreadId] ?? [];
-    return [...baseMessages, ...extra];
-  }, [baseMessages, extraByThread, selectedThreadId]);
+    return extraByThread[selectedThreadId] ?? [];
+  }, [extraByThread, selectedThreadId]);
 
   const activeTitle = useMemo(() => {
     if (!selectedThreadId) return "Nuevo diagnóstico";
@@ -53,8 +44,25 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
     setChatError(null);
   }, []);
 
+  const renameSelectedThread = useCallback(
+    (nextTitle: string) => {
+      if (!selectedThreadId) return;
+      const title = truncateThreadTitle(nextTitle);
+      setThreads((prev) =>
+        prev.map((t) =>
+          t.id === selectedThreadId ? { ...t, title, updatedAt: new Date() } : t,
+        ),
+      );
+    },
+    [selectedThreadId],
+  );
+
   const sendUserMessage = useCallback(
-    async (text: string, attachments: ChatAttachment[] = []): Promise<boolean> => {
+    async (
+      text: string,
+      attachments: ChatAttachment[] = [],
+      options?: { brand?: string | null },
+    ): Promise<boolean> => {
       const trimmed = text.trim();
       const list = attachments.length ? attachments : undefined;
       if (!trimmed && !list?.length) return false;
@@ -91,9 +99,9 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
           ...(list ? { attachments: list } : {}),
         };
         setThreads((prev) =>
-          prev.map((t) =>
-            t.id === targetThreadId ? { ...t, updatedAt: now } : t,
-          ),
+          prev
+            .map((t) => (t.id === targetThreadId ? { ...t, updatedAt: now } : t))
+            .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()),
         );
         setExtraByThread((prev) => ({
           ...prev,
@@ -111,7 +119,9 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
       setIsChatLoading(true);
       setChatError(null);
       try {
-        const { answer, sources: rawSources } = await postChat(trimmed);
+        const { answer, sources: rawSources } = await postChat(trimmed, {
+          brand: options?.brand?.trim() || undefined,
+        });
         const sources = rawSources ?? [];
         const assistantMsg: ChatMessage = {
           id: `local-${Date.now()}-a`,
@@ -125,9 +135,11 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
           [targetThreadId]: [...(prev[targetThreadId] ?? []), assistantMsg],
         }));
         setThreads((prev) =>
-          prev.map((t) =>
-            t.id === targetThreadId ? { ...t, updatedAt: new Date() } : t,
-          ),
+          prev
+            .map((t) =>
+              t.id === targetThreadId ? { ...t, updatedAt: new Date() } : t,
+            )
+            .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()),
         );
         return true;
       } catch (err) {
@@ -154,6 +166,7 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
       isNewDiagnosisSession,
       newDiagnosisFocusNonce,
       startNewDiagnosis,
+      renameSelectedThread,
       sendUserMessage,
       isChatLoading,
       chatError,
@@ -167,6 +180,7 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
       isNewDiagnosisSession,
       newDiagnosisFocusNonce,
       startNewDiagnosis,
+      renameSelectedThread,
       sendUserMessage,
       isChatLoading,
       chatError,

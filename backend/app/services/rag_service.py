@@ -1,5 +1,6 @@
 import re
 
+from llama_index.core.vector_stores import MetadataFilter, MetadataFilters
 from llama_index.core import VectorStoreIndex
 
 from app.core.config import Settings
@@ -48,6 +49,16 @@ class RAGService:
             return "error_code"
         return "diagnosis"
 
+    def _normalize_question(self, question: str) -> str:
+        normalized = " ".join(question.split())
+        return _ERROR_CODE_PATTERN.sub(lambda m: m.group(0).upper(), normalized)
+
+    def _normalize_brand(self, brand: str | None) -> str | None:
+        if not brand:
+            return None
+        cleaned = " ".join(brand.split()).strip()
+        return cleaned.lower() if cleaned else None
+
     def _retrieval_profile(self, mode: QueryMode) -> tuple[int, str]:
         if mode == "error_code":
             return self._settings.rag_error_code_top_k, "compact"
@@ -69,20 +80,32 @@ class RAGService:
         question: str,
         *,
         mode: QueryMode | None = None,
+        brand: str | None = None,
     ) -> RAGQueryResult:
         if not question.strip():
             raise ValueError("Question must not be empty.")
 
-        effective_mode: QueryMode = mode or self._infer_mode(question)
+        normalized_question = self._normalize_question(question)
+        normalized_brand = self._normalize_brand(brand)
+        effective_mode: QueryMode = mode or self._infer_mode(normalized_question)
         top_k, response_mode = self._retrieval_profile(effective_mode)
 
         index = self.get_index()
         llm = build_llm(self._settings)
+        if len(normalized_question) >= 120:
+            top_k += 1
+
+        filters = None
+        if normalized_brand:
+            filters = MetadataFilters(
+                filters=[MetadataFilter(key="brand", value=normalized_brand)],
+            )
 
         engine = index.as_query_engine(
             llm=llm,
             similarity_top_k=top_k,
             response_mode=response_mode,
+            filters=filters,
             text_qa_template=TEXT_QA_TEMPLATE,
             node_postprocessors=[
                 SkipEmptyNodePostprocessor(
@@ -90,7 +113,7 @@ class RAGService:
                 ),
             ],
         )
-        response = engine.query(question)
+        response = engine.query(normalized_question)
 
         sources: list[RetrievedSourceChunk] = []
         min_src = self._settings.rag_min_node_text_chars

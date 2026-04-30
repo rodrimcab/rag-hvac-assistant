@@ -33,10 +33,15 @@ function filesToAttachments(files: File[]): ChatAttachment[] {
   }));
 }
 
-export function ChatComposer() {
+type ChatComposerProps = {
+  availableBrands: string[];
+};
+
+export function ChatComposer({ availableBrands }: ChatComposerProps) {
   const { sendUserMessage, newDiagnosisFocusNonce, isChatLoading, chatError, clearChatError } =
     useChatWorkspace();
   const [draft, setDraft] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -75,6 +80,7 @@ export function ChatComposer() {
     if (newDiagnosisFocusNonce === 0) return;
     pendingRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
     setPendingAttachments([]);
+    setSelectedBrand("");
     setCameraOpen(false);
     textareaRef.current?.focus();
   }, [newDiagnosisFocusNonce]);
@@ -118,7 +124,9 @@ export function ChatComposer() {
     if (trimmed.length > 0) {
       setDraft("");
     }
-    const ok = await sendUserMessage(text, attachments);
+    const ok = await sendUserMessage(text, attachments, {
+      brand: selectedBrand || undefined,
+    });
     if (ok) {
       attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
       setPendingAttachments([]);
@@ -274,9 +282,29 @@ export function ChatComposer() {
           </div>
         </div>
 
-        <p className="mt-1 text-center text-[11px] leading-snug text-text-secondary">
-          hvac-assistant responde únicamente con base en manuales técnicos oficiales.
-        </p>
+        <div className="mt-1 flex flex-col items-center gap-1 sm:flex-row sm:justify-between">
+          <p className="text-center text-[11px] leading-snug text-text-secondary">
+            hvac-assistant responde únicamente con base en manuales técnicos oficiales.
+          </p>
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="brand-filter" className="text-[11px] text-text-secondary">
+              Marca
+            </label>
+            <select
+              id="brand-filter"
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="rounded-md border border-border bg-white px-2 py-1 text-[11px] text-text-primary focus:border-primary focus:outline-none"
+            >
+              <option value="">Todas</option>
+              {availableBrands.map((brand) => (
+                <option key={brand} value={brand}>
+                  {brand}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <input
           id={imageInputId}
