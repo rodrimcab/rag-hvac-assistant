@@ -7,13 +7,47 @@ from app.core.config import Settings
 from app.rag.embeddings import build_embedding_model
 from app.rag.llm import build_llm
 from app.rag.postprocessors import SkipEmptyNodePostprocessor
-from app.rag.prompts import TEXT_QA_TEMPLATE
+from app.rag.prompts import ERROR_CODE_QA_TEMPLATE, TEXT_QA_TEMPLATE
 from app.rag.vector_store import open_chroma_index
 from app.schemas.chat import QueryMode, RAGQueryResult, RetrievedSourceChunk
 
-_ERROR_CODE_PATTERN = re.compile(r"\b[a-z]{1,2}\d{1,3}\b", re.IGNORECASE)
-# "error" omitted intentionally — too generic in HVAC diagnosis context.
-_ERROR_CODE_KEYWORDS = ("código", "codigo", "code fault", "fault code")
+# Rule 2: letra(s) + dígito(s) [+ letra/dígito opcionales]: E6, F1, CH10, A1D2, E1A, FC-01
+_ERROR_CODE_ALPHANUM = re.compile(
+    r"\b[A-Z]{1,3}-?\d{1,3}[A-Z]?\d?\b",
+    re.IGNORECASE,
+)
+
+# Rule 3: número puro con prefijo de contexto: "error 21", "falla 6", "alarm 88"
+_ERROR_CODE_NUMERIC = re.compile(
+    r"\b(?:error|falla|fault|alarm(?:a)?|código|codigo|avería|averia)\s+\d{1,3}\b",
+    re.IGNORECASE,
+)
+
+# Rule 4: contexto de pantalla/parpadeo + número 2-3 dígitos: "pantalla muestra 88"
+_ERROR_DISPLAY_CONTEXT = re.compile(
+    r"\b(?:pantalla|display|screen|parpadea|parpadeando|blink(?:ing)?|muestra|indica)\b"
+    r".{0,50}\b\d{2,3}\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+# Tokens que matchean Rule 2 pero NO son códigos de error
+_FALSE_POSITIVE_TOKENS = frozenset({
+    "r32", "r410a", "r410", "r22", "r134a",
+    "l1", "l2", "l3",
+    "t1", "t2",
+    "n1", "n2",
+})
+
+# Rule 1: keywords directas
+_ERROR_CODE_KEYWORDS = (
+    "código de error", "codigo de error",
+    "código de falla", "codigo de falla",
+    "código de alarma", "codigo de alarma",
+    "código", "codigo",
+    "fault code", "error code",
+    "trouble code", "diagnostic code", "alarm code",
+    "qué significa", "que significa",
+)
 
 
 class RAGService:
@@ -43,15 +77,29 @@ class RAGService:
 
     def _infer_mode(self, question: str) -> QueryMode:
         q = question.lower()
+
+        # Rule 1 — keyword directa
         if any(kw in q for kw in _ERROR_CODE_KEYWORDS):
             return "error_code"
-        if _ERROR_CODE_PATTERN.search(q):
+
+        # Rule 2 — token alfanumérico con filtro de falsos positivos
+        for match in _ERROR_CODE_ALPHANUM.finditer(question):
+            if match.group(0).lower() not in _FALSE_POSITIVE_TOKENS:
+                return "error_code"
+
+        # Rule 3 — número puro con prefijo de contexto de error
+        if _ERROR_CODE_NUMERIC.search(q):
             return "error_code"
+
+        # Rule 4 — contexto de pantalla/parpadeo con número
+        if _ERROR_DISPLAY_CONTEXT.search(q):
+            return "error_code"
+
         return "diagnosis"
 
     def _normalize_question(self, question: str) -> str:
         normalized = " ".join(question.split())
-        return _ERROR_CODE_PATTERN.sub(lambda m: m.group(0).upper(), normalized)
+        return _ERROR_CODE_ALPHANUM.sub(lambda m: m.group(0).upper(), normalized)
 
     def _normalize_brand(self, brand: str | None) -> str | None:
         if not brand:
@@ -101,12 +149,13 @@ class RAGService:
                 filters=[MetadataFilter(key="brand", value=normalized_brand)],
             )
 
+        template = ERROR_CODE_QA_TEMPLATE if effective_mode == "error_code" else TEXT_QA_TEMPLATE
         engine = index.as_query_engine(
             llm=llm,
             similarity_top_k=top_k,
             response_mode=response_mode,
             filters=filters,
-            text_qa_template=TEXT_QA_TEMPLATE,
+            text_qa_template=template,
             node_postprocessors=[
                 SkipEmptyNodePostprocessor(
                     min_chars=self._settings.rag_min_node_text_chars,
