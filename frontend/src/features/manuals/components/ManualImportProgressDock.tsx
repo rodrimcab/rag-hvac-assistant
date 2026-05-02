@@ -127,7 +127,9 @@ export function ManualImportProgressDock({
     ingestStatus.status === "processing" &&
     ingestStatus.ingest_step === "indexing" &&
     ingestStatus.chunks_total > 0
-      ? `${ingestStatus.chunks_total} fragmento${ingestStatus.chunks_total === 1 ? "" : "s"} a vectorizar`
+      ? ingestStatus.chunks_done > 0
+        ? `${ingestStatus.chunks_done} / ${ingestStatus.chunks_total} fragmentos`
+        : `${ingestStatus.chunks_total} fragmento${ingestStatus.chunks_total === 1 ? "" : "s"} a vectorizar`
       : null;
 
   return (
