@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -15,6 +16,12 @@ if TYPE_CHECKING:
     from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
+
+_IMG_MIN_SIDE     = 100    # px — filtra iconos y logos pequeños
+_IMG_MIN_BYTES    = 2_048  # bytes — filtra imágenes triviales
+_IMG_MAX_RATIO    = 20.0   # filtra reglas/separadores horizontales
+_RENDER_DPI       = 150    # DPI para render de páginas vectoriales
+_VECTOR_THRESHOLD = 150    # mínimo de trazados vectoriales para render completo
 
 
 def _page_visual_complexity(page: object) -> tuple[int, int]:
@@ -60,6 +67,63 @@ def _render_page_jpeg(page: object, settings: "Settings") -> tuple[bytes, str]:
     return pix.tobytes("jpeg", jpg_quality=int(settings.diagram_jpeg_quality)), "image/jpeg"
 
 
+def extract_page_images(pdf_path: Path, images_base_dir: Path) -> dict[int, list[str]]:
+    """
+    Extrae imágenes relevantes de cada página del PDF con PyMuPDF.
+
+    Modo 1: imágenes embebidas (filtradas por tamaño y proporción).
+    Modo 2: render completo para páginas sólo vectoriales (trazados >= threshold).
+    Retorna {page_num: ["/images/{stem}/filename", ...]} — URLs relativas para FastAPI.
+    """
+    import fitz
+
+    stem = pdf_path.stem
+    out_dir = images_base_dir / stem
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    page_images: dict[int, list[str]] = {}
+    with fitz.open(str(pdf_path)) as doc:
+        for idx, page in enumerate(doc):
+            pn = idx + 1
+            saved: list[str] = []
+
+            # Modo 1: imágenes embebidas
+            for ii, img_info in enumerate(page.get_images(full=True)):
+                xref = img_info[0]
+                try:
+                    base = doc.extract_image(xref)
+                    w, h, size = base["width"], base["height"], len(base["image"])
+                    if w < _IMG_MIN_SIDE or h < _IMG_MIN_SIDE or size < _IMG_MIN_BYTES:
+                        continue
+                    if max(w, h) / max(min(w, h), 1) > _IMG_MAX_RATIO:
+                        continue
+                    pix = fitz.Pixmap(doc, xref)
+                    if pix.n > 4:  # CMYK → RGB
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    fname = f"page{pn}_img{ii}.{base['ext']}"
+                    pix.save(str(out_dir / fname))
+                    saved.append(f"/images/{stem}/{fname}")
+                except Exception:
+                    continue
+
+            # Modo 2: render completo para páginas sólo vectoriales
+            if not saved:
+                try:
+                    draw_count = len(page.get_drawings())
+                except Exception:
+                    draw_count = 0
+                if draw_count >= _VECTOR_THRESHOLD:
+                    pix = page.get_pixmap(dpi=_RENDER_DPI)
+                    fname = f"page{pn}_render.png"
+                    pix.save(str(out_dir / fname))
+                    saved.append(f"/images/{stem}/{fname}")
+
+            if saved:
+                page_images[pn] = saved
+
+    return page_images
+
+
 def build_documents_from_pdf(
     pdf_path: Path,
     settings: "Settings",
@@ -67,6 +131,7 @@ def build_documents_from_pdf(
     file_name: str,
     brand: str | None,
     page_progress: Callable[[int, int], None] | None = None,
+    images_base_dir: Path | None = None,
 ) -> list[Document]:
     """
     One ``Document`` per PDF page so chunk metadata keeps ``page_number``.
@@ -83,6 +148,13 @@ def build_documents_from_pdf(
 
     documents: list[Document] = []
     last_call = [0.0]  # mutable monotonic anchor for throttling vision calls
+
+    page_images: dict[int, list[str]] = {}
+    if images_base_dir is not None:
+        try:
+            page_images = extract_page_images(pdf_path, images_base_dir)
+        except Exception as exc:
+            logger.warning("image_extraction_failed file=%s err=%s", file_name, exc)
 
     with fitz.open(pdf_path) as doc:
         total = doc.page_count
@@ -151,6 +223,7 @@ def build_documents_from_pdf(
                 "page_number": pn,
                 "page_label": str(pn),
                 "has_diagram_context": has_diagram,
+                "image_urls": json.dumps(page_images.get(pn, [])),
             }
             if brand:
                 meta["brand"] = brand

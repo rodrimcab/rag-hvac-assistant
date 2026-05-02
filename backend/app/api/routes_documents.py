@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import chromadb
@@ -210,3 +211,7 @@ def delete_document(
     dest_path.unlink()
     _delete_from_chroma(settings, filename)
     rag_service.invalidate_index()
+
+    images_dir = settings.images_path / Path(filename).stem
+    if images_dir.exists():
+        shutil.rmtree(images_dir)

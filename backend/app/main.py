@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes_chat import router as chat_router
 from app.api.routes_documents import router as documents_router
@@ -21,6 +22,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+settings.images_path.mkdir(parents=True, exist_ok=True)
+app.mount("/images", StaticFiles(directory=str(settings.images_path)), name="images")
 
 app.include_router(health_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")

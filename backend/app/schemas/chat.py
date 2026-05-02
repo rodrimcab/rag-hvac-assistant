@@ -28,6 +28,7 @@ class RetrievedSourceChunk(BaseModel):
     score: float | None = None
     page_number: int | None = None
     has_diagram_context: bool = False
+    image_urls: list[str] = []
 
 
 class RAGQueryResult(BaseModel):

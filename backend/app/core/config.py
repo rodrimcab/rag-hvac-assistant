@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     gemini_vision_model: str | None = None
     gemini_embedding_model: str = "gemini-embedding-001"
     manuals_dir: str = "data/manuals"
+    images_dir: str = "data/images"
     rag_min_node_text_chars: int = 12
     # Winning config: 1024 / 200 offers the best recall/noise tradeoff on service manuals.
     rag_chunk_size: int = 1024
@@ -88,6 +89,10 @@ class Settings(BaseSettings):
     @property
     def manuals_path(self) -> Path:
         return (self.backend_root / self.manuals_dir).resolve()
+
+    @property
+    def images_path(self) -> Path:
+        return (self.backend_root / self.images_dir).resolve()
 
     @property
     def chroma_db_absolute_path(self) -> Path:
