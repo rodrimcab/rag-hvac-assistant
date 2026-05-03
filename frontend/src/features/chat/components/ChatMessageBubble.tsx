@@ -3,6 +3,7 @@ import { cn } from "../../../lib/cn";
 import type { ChatMessage } from "../types/message.types";
 import { ChatAttachmentsStrip } from "./ChatAttachmentsStrip";
 import { ChatMessageBody } from "./ChatMessageBody";
+import { ChatDiagramGallery } from "./ChatDiagramGallery";
 import { ChatMessageSources } from "./ChatMessageSources";
 
 type ChatMessageBubbleProps = {
@@ -61,6 +62,7 @@ export function ChatMessageBubble({ message, userInitials }: ChatMessageBubblePr
         )}
       >
         <ChatMessageBody text={message.content} />
+        {message.sources?.length ? <ChatDiagramGallery sources={message.sources} /> : null}
         {message.sources?.length ? <ChatMessageSources sources={message.sources} /> : null}
       </div>
     </div>

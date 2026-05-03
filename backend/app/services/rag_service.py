@@ -1,3 +1,4 @@
+import json
 import re
 
 from llama_index.core.vector_stores import MetadataFilter, MetadataFilters
@@ -184,6 +185,14 @@ class RAGService:
                 except (TypeError, ValueError):
                     page_number = None
             has_diagram = bool(meta.get("has_diagram_context", False))
+            raw_urls = meta.get("image_urls", "[]")
+            try:
+                image_urls: list[str] = (
+                    json.loads(raw_urls) if isinstance(raw_urls, str)
+                    else (raw_urls if isinstance(raw_urls, list) else [])
+                )
+            except (json.JSONDecodeError, ValueError):
+                image_urls = []
             sources.append(
                 RetrievedSourceChunk(
                     text=node_text,
@@ -191,6 +200,7 @@ class RAGService:
                     score=score,
                     page_number=page_number,
                     has_diagram_context=has_diagram,
+                    image_urls=image_urls,
                 )
             )
 

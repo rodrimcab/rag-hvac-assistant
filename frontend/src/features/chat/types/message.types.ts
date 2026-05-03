@@ -9,6 +9,8 @@ export type ChatDocumentSource = {
   page_number?: number | null;
   /** True when this chunk includes a Gemini vision description of figures on that page. */
   has_diagram_context?: boolean | null;
+  /** URLs de imágenes/diagramas extraídos de esa página del PDF. */
+  image_urls?: string[] | null;
 };
 
 export type ChatAttachmentKind = "image" | "file";

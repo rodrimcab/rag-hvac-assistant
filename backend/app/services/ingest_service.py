@@ -94,6 +94,7 @@ class IngestService:
                 file_name=pdf_path.name,
                 brand=brand,
                 page_progress=page_progress,
+                images_base_dir=self._settings.images_path if self._settings.diagram_vision_enabled else None,
             )
             if not documents:
                 raise ValueError(f"No se pudo leer el archivo '{pdf_path.name}'.")
@@ -127,11 +128,16 @@ class IngestService:
             )
 
             embed_model = build_embedding_model(self._settings)
+
+            def _on_progress(done: int) -> None:
+                self._state.chunks_done = done  # escritura atómica de int, segura sin lock
+
             add_documents_to_chroma(
                 persist_path=self._settings.chroma_db_absolute_path,
                 collection_name=self._settings.chroma_collection_name,
                 embed_model=embed_model,
                 nodes=nodes,
+                on_progress=_on_progress,
             )
 
             self._rag.invalidate_index()
