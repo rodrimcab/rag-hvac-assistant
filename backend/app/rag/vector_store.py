@@ -52,7 +52,7 @@ def add_documents_to_chroma(
     embed_model: BaseEmbedding,
     nodes: list[BaseNode],
     on_progress: Callable[[int], None] | None = None,
-    batch_size: int = 10,
+    batch_size: int = 100,
 ) -> VectorStoreIndex:
     """
     Incrementally embed ``nodes`` and add them to the ChromaDB collection.

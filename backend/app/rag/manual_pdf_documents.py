@@ -147,7 +147,6 @@ def build_documents_from_pdf(
         ) from exc
 
     documents: list[Document] = []
-    last_call = [0.0]  # mutable monotonic anchor for throttling vision calls
 
     page_images: dict[int, list[str]] = {}
     if images_base_dir is not None:
@@ -196,7 +195,6 @@ def build_documents_from_pdf(
                         file_name=file_name,
                         brand_hint=brand,
                         settings=settings,
-                        last_call_monotonic=last_call,
                     )
                 except Exception as exc:
                     logger.warning("diagram_vision_page_failed page=%s err=%s", pn, exc)

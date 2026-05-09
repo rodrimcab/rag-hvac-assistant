@@ -138,6 +138,7 @@ class IngestService:
                 embed_model=embed_model,
                 nodes=nodes,
                 on_progress=_on_progress,
+                batch_size=self._settings.embedding_batch_size,
             )
 
             self._rag.invalidate_index()

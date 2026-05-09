@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -24,7 +23,6 @@ def describe_manual_page_image(
     file_name: str,
     brand_hint: str | None,
     settings: "Settings",
-    last_call_monotonic: list[float] | None = None,
 ) -> str:
     """
     Describe a single rendered PDF page for semantic retrieval.
@@ -48,13 +46,6 @@ def describe_manual_page_image(
     model = _normalize_model_id(
         settings.gemini_vision_model or settings.gemini_llm_model,
     )
-
-    if settings.diagram_vision_min_interval_seconds > 0 and last_call_monotonic is not None:
-        wait = settings.diagram_vision_min_interval_seconds - (
-            time.monotonic() - last_call_monotonic[0]
-        )
-        if wait > 0:
-            time.sleep(wait)
 
     brand_clause = f" Marca de contexto del archivo: {brand_hint}." if brand_hint else ""
     prompt = (
@@ -85,9 +76,6 @@ def describe_manual_page_image(
     except Exception as exc:
         logger.warning("diagram_vision_call_failed page=%s err=%s", page_number, exc)
         return ""
-
-    if last_call_monotonic is not None:
-        last_call_monotonic[0] = time.monotonic()
 
     if not getattr(response, "candidates", None):
         return ""
