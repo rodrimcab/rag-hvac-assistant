@@ -6,6 +6,7 @@ export type ChatWorkspaceContextValue = {
   threads: ChatThread[];
   selectedThreadId: string | null;
   setSelectedThreadId: (id: string | null) => void;
+  deleteThread: (threadId: string) => void;
   renameSelectedThread: (nextTitle: string) => void;
   messages: ChatMessage[];
   activeTitle: string;

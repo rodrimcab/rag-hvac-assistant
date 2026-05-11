@@ -1,11 +1,13 @@
 import { X } from "lucide-react";
 import { useState } from "react";
 import { ChatHistoryList } from "../../features/chat/components/ChatHistoryList";
+import { DeleteChatConfirmModal } from "../../features/chat/components/DeleteChatConfirmModal";
 import { NewDiagnosisButton } from "../../features/chat/components/NewDiagnosisButton";
 import { SidebarSearchInput } from "../../features/chat/components/SidebarSearchInput";
 import { SidebarSystemNav } from "../../features/chat/components/SidebarSystemNav";
 import { useChatWorkspace } from "../../features/chat/hooks/useChatWorkspace";
 import { useFilteredChatThreads } from "../../features/chat/hooks/useFilteredChatThreads";
+import type { ChatThread } from "../../features/chat/types/thread.types";
 import { useMobileSidebar } from "../../hooks/useMobileSidebar";
 import { cn } from "../../lib/cn";
 import { SidebarAccountFooter } from "./SidebarAccountFooter";
@@ -20,7 +22,6 @@ type AppSidebarProps = {
   onNewDiagnosis?: () => void;
   onManualsClick?: () => void;
   onSelectThread?: () => void;
-  onSettingsClick?: () => void;
 };
 
 export function AppSidebar({
@@ -31,9 +32,9 @@ export function AppSidebar({
   onNewDiagnosis,
   onManualsClick,
   onSelectThread,
-  onSettingsClick,
 }: AppSidebarProps) {
-  const { threads, selectedThreadId, setSelectedThreadId, startNewDiagnosis } = useChatWorkspace();
+  const { threads, selectedThreadId, setSelectedThreadId, startNewDiagnosis, deleteThread } =
+    useChatWorkspace();
   const { setOpen } = useMobileSidebar();
 
   const handleSelectThread = (id: string) => {
@@ -41,6 +42,7 @@ export function AppSidebar({
     onSelectThread?.();
   };
   const [query, setQuery] = useState("");
+  const [threadPendingDelete, setThreadPendingDelete] = useState<ChatThread | null>(null);
   const listThreads = useFilteredChatThreads(threads, query);
 
   return (
@@ -83,10 +85,21 @@ export function AppSidebar({
             threads={listThreads}
             selectedId={selectedThreadId}
             onSelect={handleSelectThread}
+            onRequestDelete={navigationLocked ? undefined : setThreadPendingDelete}
             disabled={navigationLocked}
           />
         </div>
       </div>
+
+      <DeleteChatConfirmModal
+        open={threadPendingDelete !== null}
+        chatTitle={threadPendingDelete?.title ?? ""}
+        onCancel={() => setThreadPendingDelete(null)}
+        onConfirm={() => {
+          if (threadPendingDelete) deleteThread(threadPendingDelete.id);
+          setThreadPendingDelete(null);
+        }}
+      />
 
       <div
         className={cn(
@@ -98,7 +111,6 @@ export function AppSidebar({
           manualsCount={manualsCount}
           manualsActive={manualsNavActive}
           onManualsClick={onManualsClick}
-          onSettingsClick={onSettingsClick}
           disabled={navigationLocked}
         />
         <SidebarAccountFooter />

@@ -73,6 +73,17 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
     [selectedThreadId],
   );
 
+  const deleteThread = useCallback((threadId: string) => {
+    setThreads((prev) => prev.filter((t) => t.id !== threadId));
+    setExtraByThread((prev) => {
+      if (!(threadId in prev)) return prev;
+      const next = { ...prev };
+      delete next[threadId];
+      return next;
+    });
+    setSelectedThreadId((current) => (current === threadId ? null : current));
+  }, []);
+
   const sendUserMessage = useCallback(
     async (
       text: string,
@@ -126,9 +137,7 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
       }
 
       if (!trimmed.length) {
-        setChatError(
-          "Para consultar al asistente necesitás escribir una pregunta. Los adjuntos aún no se envían al backend.",
-        );
+        setChatError("Para consultar al asistente necesitás escribir una pregunta.");
         return false;
       }
 
@@ -177,6 +186,7 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
       threads,
       selectedThreadId,
       setSelectedThreadId,
+      deleteThread,
       messages,
       activeTitle,
       isNewDiagnosisSession,
@@ -191,6 +201,7 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
     [
       threads,
       selectedThreadId,
+      deleteThread,
       messages,
       activeTitle,
       isNewDiagnosisSession,

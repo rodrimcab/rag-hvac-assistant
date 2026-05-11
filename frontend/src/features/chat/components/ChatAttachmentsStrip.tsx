@@ -85,7 +85,3 @@ export function ChatAttachmentsStrip({
     </ul>
   );
 }
-
-export function fileToAttachmentKind(file: File): "image" | "file" {
-  return file.type.startsWith("image/") ? "image" : "file";
-}

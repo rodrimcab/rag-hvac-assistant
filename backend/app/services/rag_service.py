@@ -1,5 +1,6 @@
 import json
 import re
+import unicodedata
 
 from llama_index.core.vector_stores import MetadataFilter, MetadataFilters
 from llama_index.core import VectorStoreIndex
@@ -49,6 +50,63 @@ _ERROR_CODE_KEYWORDS = (
     "trouble code", "diagnostic code", "alarm code",
     "qué significa", "que significa",
 )
+
+# Substrings (accent-folded ASCII, lower) matched against ``_fold_accents(question)``.
+_MANUAL_LOOKUP_HINTS = frozenset({
+    "manual", "manuales", "servicio", "tecnico",
+    "codigo", "error", "falla", "alarma", "fault", "trouble", "diagnostico",
+    "voltaje", "amper", "presion", "temperatura",
+    "compresor", "compressor", "evaporador", "condensador", "condenser",
+    "refrigeran", "r32", "r410", "r22", "r134",
+    "instalacion", "mantenimiento", "manten",
+    "sensor", "pcb", "placa", "tablero", "electronic",
+    "diagrama", "diagram", "despiece", "procedimiento",
+    "medicion", "medir", "verifica", "comprobar", "resistencia",
+    "inverter", "split", "ducto", "mini", "vrv", "vrf",
+    "drenaje", "bomba", "calor", "frio",
+    "fuga", "valvula", "electrov",
+    "motor", "ventilador", "bobina", "defrost", "deshielo",
+    "precaucion", "advertencia",
+    "outdoor", "indoor", "equipo", "unidad", "aparato",
+    "enfria", "calef", "arranc", "ruido", "vibra", "goteo", "hielo",
+    "aire acondicionado", "climatiza",
+    "tubo", "tubos", "linea", "lineas", "soldadura", "vacuum", "vacio",
+    "superheat", "subcool", "lockout", "arranque", "parada",
+    "filtro", "serpentin", "intercambiador", "gas caliente",
+})
+
+# Meta / off-topic: never attach «sources» for these (accent-folded substring match).
+_SOURCE_EXPOSURE_BLOCKLIST = (
+    "no muestres",
+    "no mostrar",
+    "no muestre",
+    "sin respaldo",
+    "sin fuentes",
+    "don't show",
+    "do not show",
+    "ignore the manual",
+    "ignore manual",
+    "olvidate del manual",
+    # Pruebas / meta (evitar falsos positivos; no usar frases demasiado cortas tipo "para probar").
+    "solo para probar",
+    "para probar el llm",
+    "para probar el modelo",
+    "probar el llm",
+    "probar la ia",
+    "prueba del llm",
+    "solo un test",
+    "es un test",
+    "mensaje de test",
+    "testing purposes",
+    "unit test",
+    "integration test",
+)
+
+
+def _fold_accents(s: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn"
+    ).lower()
 
 
 class RAGService:
@@ -107,6 +165,31 @@ class RAGService:
             return None
         cleaned = " ".join(brand.split()).strip()
         return cleaned.lower() if cleaned else None
+
+    @staticmethod
+    def _should_expose_document_sources(question: str, mode: QueryMode) -> bool:
+        if mode == "error_code":
+            return True
+        folded = _fold_accents(" ".join(question.split()))
+        if len(folded) < 8:
+            return False
+        for phrase in _SOURCE_EXPOSURE_BLOCKLIST:
+            if phrase in folded:
+                return False
+        for hint in _MANUAL_LOOKUP_HINTS:
+            if hint in folded:
+                return True
+        return False
+
+    def _filter_sources_by_similarity(self, sources: list[RetrievedSourceChunk]) -> list[RetrievedSourceChunk]:
+        scored = [s for s in sources if s.score is not None]
+        if not scored:
+            return []
+        top = max(s.score for s in scored)
+        floor = self._settings.rag_source_score_floor
+        margin = self._settings.rag_source_score_margin_from_top
+        cutoff = max(floor, top - margin)
+        return [s for s in sources if s.score is not None and s.score >= cutoff]
 
     def _retrieval_profile(self, mode: QueryMode) -> tuple[int, str]:
         if mode == "error_code":
@@ -203,5 +286,10 @@ class RAGService:
                     image_urls=image_urls,
                 )
             )
+
+        if not self._should_expose_document_sources(normalized_question, effective_mode):
+            sources = []
+        else:
+            sources = self._filter_sources_by_similarity(sources)
 
         return RAGQueryResult(answer=str(response), sources=sources)

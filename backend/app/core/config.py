@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     # Dynamic top_k per query intent (see RAGService._infer_mode).
     rag_diagnosis_top_k: int = 5
     rag_error_code_top_k: int = 3
+    # Chroma distances are mapped to similarity via exp(-distance) in LlamaIndex; weak
+    # off-topic hits cluster ~0.50, solid manual hits are usually higher.
+    rag_source_score_floor: float = 0.515
+    rag_source_score_margin_from_top: float = 0.035
     # Tier 1 batching for gemini-embedding-001: API maximum is 100 texts per request.
     embedding_batch_size: int = 100
     # ChromaDB persistence (relative to `backend/`).

@@ -5,10 +5,17 @@ type ChatHistoryListProps = {
   threads: ChatThread[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onRequestDelete?: (thread: ChatThread) => void;
   disabled?: boolean;
 };
 
-export function ChatHistoryList({ threads, selectedId, onSelect, disabled = false }: ChatHistoryListProps) {
+export function ChatHistoryList({
+  threads,
+  selectedId,
+  onSelect,
+  onRequestDelete,
+  disabled = false,
+}: ChatHistoryListProps) {
   if (threads.length === 0) {
     return (
       <p className="px-3 py-6 text-center text-sm text-text-secondary">No hay conversaciones.</p>
@@ -23,6 +30,7 @@ export function ChatHistoryList({ threads, selectedId, onSelect, disabled = fals
             thread={thread}
             selected={thread.id === selectedId}
             onSelect={onSelect}
+            onRequestDelete={onRequestDelete}
             disabled={disabled}
           />
         </li>

@@ -1,4 +1,4 @@
-import { BookOpen, Settings, type LucideIcon } from "lucide-react";
+import { BookOpen, type LucideIcon } from "lucide-react";
 import { SectionLabel } from "../../../components/ui/SectionLabel";
 import { cn } from "../../../lib/cn";
 
@@ -45,7 +45,6 @@ type SidebarSystemNavProps = {
   manualsCount: number;
   manualsActive?: boolean;
   onManualsClick?: () => void;
-  onSettingsClick?: () => void;
   className?: string;
   disabled?: boolean;
 };
@@ -54,7 +53,6 @@ export function SidebarSystemNav({
   manualsCount,
   manualsActive,
   onManualsClick,
-  onSettingsClick,
   className,
   disabled = false,
 }: SidebarSystemNavProps) {
@@ -69,7 +67,6 @@ export function SidebarSystemNav({
         active={manualsActive}
         disabled={disabled}
       />
-      <SystemNavButton icon={Settings} label="Ajustes" onClick={onSettingsClick} disabled={disabled} />
     </nav>
   );
 }

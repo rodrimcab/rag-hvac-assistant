@@ -6,11 +6,6 @@ type ChatMessageSourcesProps = {
   sources: ChatDocumentSource[];
 };
 
-function formatScore(score: number | null | undefined): string | null {
-  if (score == null || Number.isNaN(Number(score))) return null;
-  return Number(score).toFixed(3);
-}
-
 export function ChatMessageSources({ sources }: ChatMessageSourcesProps) {
   if (!sources.length) return null;
 
@@ -22,7 +17,6 @@ export function ChatMessageSources({ sources }: ChatMessageSourcesProps) {
       <ul className="flex flex-col gap-2.5">
         {sources.map((source, index) => {
           const label = source.file_name?.trim() || "Fragmento del manual";
-          const scoreLabel = formatScore(source.score);
           const pageNum =
             typeof source.page_number === "number" && Number.isFinite(source.page_number)
               ? source.page_number
@@ -45,11 +39,6 @@ export function ChatMessageSources({ sources }: ChatMessageSourcesProps) {
                 {source.has_diagram_context ? (
                   <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
                     diagrama
-                  </span>
-                ) : null}
-                {scoreLabel ? (
-                  <span className="text-[10px] font-medium tabular-nums text-text-secondary/90">
-                    score {scoreLabel}
                   </span>
                 ) : null}
               </div>

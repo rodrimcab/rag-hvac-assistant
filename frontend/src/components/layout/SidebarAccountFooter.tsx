@@ -1,18 +1,13 @@
-import { LogIn, MoreVertical } from "lucide-react";
+import { LogIn } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { cn } from "../../lib/cn";
 
 type SidebarAccountFooterProps = {
   className?: string;
-  onAccountMenuClick?: () => void;
   onSignInClick?: () => void;
 };
 
-export function SidebarAccountFooter({
-  className,
-  onAccountMenuClick,
-  onSignInClick,
-}: SidebarAccountFooterProps) {
+export function SidebarAccountFooter({ className, onSignInClick }: SidebarAccountFooterProps) {
   const { user } = useAuth();
 
   if (!user) {
@@ -58,14 +53,6 @@ export function SidebarAccountFooter({
         <p className="truncate text-sm font-semibold text-text-primary">{user.name}</p>
         <p className="truncate text-xs text-text-secondary">{user.roleLabel}</p>
       </div>
-      <button
-        type="button"
-        onClick={onAccountMenuClick}
-        className="rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-border-focus"
-        aria-label="Opciones de cuenta"
-      >
-        <MoreVertical className="size-4" strokeWidth={2} />
-      </button>
     </div>
   );
 }
