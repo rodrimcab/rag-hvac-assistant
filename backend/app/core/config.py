@@ -36,10 +36,8 @@ class Settings(BaseSettings):
     # Dynamic top_k per query intent (see RAGService._infer_mode).
     rag_diagnosis_top_k: int = 5
     rag_error_code_top_k: int = 3
-    # Conservative batching for the Free-tier limits of gemini-embedding-001:
-    # 5 items per call, spaced by `embedding_min_interval_seconds` to stay under RPM caps.
-    embedding_batch_size: int = 5
-    embedding_min_interval_seconds: float = 12.0
+    # Tier 1 batching for gemini-embedding-001: API maximum is 100 texts per request.
+    embedding_batch_size: int = 100
     # ChromaDB persistence (relative to `backend/`).
     chroma_db_path: str = "./chroma_db"
     chroma_collection_name: str = "hvac_manuals"
@@ -48,8 +46,7 @@ class Settings(BaseSettings):
 
     # ── Diagram / page vision (ingestion only; not used per chat message) ─────
     diagram_vision_enabled: bool = True
-    diagram_vision_max_pages_per_pdf: int = 45
-    diagram_vision_min_interval_seconds: float = 2.0
+    diagram_vision_max_pages_per_pdf: int = 10
     diagram_vision_temperature: float = 0.15
     diagram_vision_max_output_tokens: int = 1024
     diagram_page_render_dpi: float = 140.0
