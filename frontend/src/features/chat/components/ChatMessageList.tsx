@@ -15,7 +15,7 @@ type ChatMessageListProps = {
 function DaySeparator({ date }: { date: Date }) {
   return (
     <div className="flex justify-center py-3">
-      <span className="rounded-full bg-surface/80 px-3 py-1 text-xs font-medium text-text-secondary capitalize">
+      <span className="rounded-full bg-surface/80 px-3 py-1 text-xs font-medium text-text-secondary">
         {formatDaySeparatorLabel(date)}
       </span>
     </div>

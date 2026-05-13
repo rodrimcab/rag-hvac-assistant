@@ -41,7 +41,7 @@ cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --host 
 
 ## Try the RAG stack (Phase 2 service check)
 
-1. Put one or more `*.pdf` files in `data/manuals/` (you can copy them from `frontend/src/assets/` while developing).
+1. Put one or more `*.pdf` files in `data/manuals/`.
 2. Export `GOOGLE_API_KEY` (or set `google_api_key` in `.env`).
 3. From `backend/` with the virtualenv active:
 
@@ -97,3 +97,7 @@ Expected response shape:
 | `GET /docs` | Swagger UI |
 
 The frontend (Vite) is expected on `http://localhost:5173`; adjust `CORS_ORIGINS` in `.env` if needed.
+
+## Chat SQLite (`data/conversations.db`)
+
+El historial de conversaciones (por cuenta demo, cabecera `X-Demo-User`) vive en **`data/conversations.db`**. Para que el equipo vea el mismo historial al clonar o hacer `git pull`, **ese archivo está pensado para versionarse** en el repo (demo acotada). Si dos personas escriben a la vez sobre el mismo archivo en Git, pueden aparecer conflictos de merge: en ese caso conviene que solo una persona actualice el `.db` o usar un backend compartido con volumen persistente.

@@ -55,7 +55,7 @@ export function DeleteChatConfirmModal({
             ¿Eliminar esta conversación?
           </h2>
           <p id={descId} className="mt-2 text-sm leading-relaxed text-text-secondary">
-            Se borrará del historial local{" "}
+            Se borrará del historial guardado{" "}
             <span className="font-medium text-text-primary">«{chatTitle}»</span>. Esta acción no se puede deshacer.
           </p>
         </div>

@@ -1,12 +1,21 @@
+import json
 import logging
 import re
+import uuid
+from datetime import datetime, timezone
 from time import perf_counter
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from app.api.demo_owner import get_demo_owner_id
 from app.core.dependencies import get_rag_service
+from app.db.models import Conversation, Message
+from app.db.session import get_db
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.rag_service import RAGService
+from app.util.conversation_text import format_prior_messages_for_prompt, truncate_conversation_title
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -56,31 +65,97 @@ def _map_exception_to_http(exc: Exception) -> HTTPException:
 def chat(
     payload: ChatRequest,
     rag_service: RAGService = Depends(get_rag_service),
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_demo_owner_id),
 ) -> ChatResponse:
     """Run one RAG query using local manuals and return answer + sources."""
     started = perf_counter()
+    now = datetime.now(timezone.utc)
+    cid = (payload.conversation_id or "").strip() or None
+
+    conv: Conversation | None = None
+    if cid:
+        conv = db.get(Conversation, cid)
+        if not conv or conv.owner_id != owner_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    else:
+        msg_for_title = payload.message.strip()
+        conv = Conversation(
+            id=str(uuid.uuid4()),
+            owner_id=owner_id,
+            title=truncate_conversation_title(msg_for_title),
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(conv)
+        db.flush()
+
+    prior_rows = db.scalars(
+        select(Message)
+        .where(Message.conversation_id == conv.id)
+        .order_by(Message.created_at.asc()),
+    ).all()
+    prior_pairs = [(m.role, m.content) for m in prior_rows]
+    conversation_context = format_prior_messages_for_prompt(prior_pairs)
+
+    user_row = Message(
+        id=str(uuid.uuid4()),
+        conversation_id=conv.id,
+        role="user",
+        content=payload.message.strip(),
+        sources_json=None,
+        created_at=now,
+    )
+    db.add(user_row)
+    db.flush()
+
     try:
         result = rag_service.query(
             payload.message,
             mode=payload.mode,
             brand=payload.brand,
+            conversation_context=conversation_context,
         )
     except ValueError as exc:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_friendly_bad_request_message(str(exc)),
         ) from exc
     except Exception as exc:
+        db.rollback()
         logger.exception("chat_query_failed")
         raise _map_exception_to_http(exc) from exc
 
+    sources_json: str | None = None
+    if result.sources:
+        sources_json = json.dumps([s.model_dump() for s in result.sources])
+
+    assistant_row = Message(
+        id=str(uuid.uuid4()),
+        conversation_id=conv.id,
+        role="assistant",
+        content=result.answer,
+        sources_json=sources_json,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(assistant_row)
+    conv.updated_at = assistant_row.created_at
+    db.commit()
+
     elapsed_ms = round((perf_counter() - started) * 1000, 2)
     logger.info(
-        "chat_query_ok mode=%s brand=%s sources=%d latency_ms=%s",
+        "chat_query_ok mode=%s brand=%s sources=%d latency_ms=%s conversation_id=%s owner_id=%s",
         payload.mode or "auto",
         (payload.brand or "").strip() or "all",
         len(result.sources),
         elapsed_ms,
+        conv.id,
+        owner_id,
     )
 
-    return ChatResponse(answer=result.answer, sources=result.sources)
+    return ChatResponse(
+        answer=result.answer,
+        sources=result.sources,
+        conversation_id=conv.id,
+    )

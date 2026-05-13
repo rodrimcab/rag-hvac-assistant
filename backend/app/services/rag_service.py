@@ -213,6 +213,7 @@ class RAGService:
         *,
         mode: QueryMode | None = None,
         brand: str | None = None,
+        conversation_context: str | None = None,
     ) -> RAGQueryResult:
         if not question.strip():
             raise ValueError("Question must not be empty.")
@@ -246,7 +247,16 @@ class RAGService:
                 ),
             ],
         )
-        response = engine.query(normalized_question)
+        query_for_engine = normalized_question
+        if conversation_context and conversation_context.strip():
+            query_for_engine = (
+                "[Contexto reciente de la misma conversación — referencia; "
+                "la pregunta actual es la última línea después de «PREGUNTA ACTUAL:».]\n"
+                f"{conversation_context.strip()}\n\n"
+                f"PREGUNTA ACTUAL:\n{normalized_question}"
+            )
+
+        response = engine.query(query_for_engine)
 
         sources: list[RetrievedSourceChunk] = []
         min_src = self._settings.rag_min_node_text_chars
