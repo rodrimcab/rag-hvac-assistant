@@ -10,7 +10,6 @@ import { useFilteredChatThreads } from "../../features/chat/hooks/useFilteredCha
 import type { ChatThread } from "../../features/chat/types/thread.types";
 import { useMobileSidebar } from "../../hooks/useMobileSidebar";
 import { cn } from "../../lib/cn";
-import { DemoAccountSwitcher } from "../../features/demo-account/DemoAccountSwitcher";
 import { SidebarAccountFooter } from "./SidebarAccountFooter";
 import { SidebarBrandHeader } from "./SidebarBrandHeader";
 
@@ -81,7 +80,6 @@ export function AppSidebar({
           }}
         />
         <SidebarSearchInput value={query} onChange={setQuery} disabled={navigationLocked} />
-        <DemoAccountSwitcher disabled={navigationLocked} />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
           <ChatHistoryList
             threads={listThreads}
