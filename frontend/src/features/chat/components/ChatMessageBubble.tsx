@@ -1,8 +1,10 @@
-import { Snowflake } from "lucide-react";
+import ucaLogo from "../../../assets/uca-logo.svg";
 import { cn } from "../../../lib/cn";
+import { filterDisplayableDocumentSources } from "../lib/documentSourcesDisplay";
 import type { ChatMessage } from "../types/message.types";
 import { ChatAttachmentsStrip } from "./ChatAttachmentsStrip";
 import { ChatMessageBody } from "./ChatMessageBody";
+import { ChatDiagramGallery } from "./ChatDiagramGallery";
 import { ChatMessageSources } from "./ChatMessageSources";
 
 type ChatMessageBubbleProps = {
@@ -40,13 +42,22 @@ export function ChatMessageBubble({ message, userInitials }: ChatMessageBubblePr
     );
   }
 
+  const docSources = filterDisplayableDocumentSources(message.sources);
+
   return (
     <div className="flex justify-start gap-2">
       <div
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-primary"
+        className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-active shadow-sm"
         aria-hidden
       >
-        <Snowflake className="size-4" strokeWidth={2} />
+        <img
+          src={ucaLogo}
+          alt=""
+          width={16}
+          height={22}
+          className="h-5 w-auto object-contain"
+          decoding="async"
+        />
       </div>
       <div
         className={cn(
@@ -54,7 +65,8 @@ export function ChatMessageBubble({ message, userInitials }: ChatMessageBubblePr
         )}
       >
         <ChatMessageBody text={message.content} />
-        {message.sources?.length ? <ChatMessageSources sources={message.sources} /> : null}
+        {docSources.length ? <ChatDiagramGallery sources={docSources} /> : null}
+        {docSources.length ? <ChatMessageSources sources={docSources} /> : null}
       </div>
     </div>
   );

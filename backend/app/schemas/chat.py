@@ -9,9 +9,18 @@ class ChatRequest(BaseModel):
     """Payload received from the chat endpoint."""
 
     message: str = Field(..., min_length=1, description="Natural-language user question.")
+    conversation_id: str | None = Field(
+        default=None,
+        description="UUID of an existing conversation. If omitted, a new conversation is created.",
+    )
     mode: QueryMode | None = Field(
         default=None,
         description="Override retrieval profile. If omitted, inferred from the question.",
+    )
+    brand: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Optional brand filter (for example: Midea, Daikin, LG).",
     )
 
 
@@ -21,6 +30,9 @@ class RetrievedSourceChunk(BaseModel):
     text: str
     file_name: str | None = None
     score: float | None = None
+    page_number: int | None = None
+    has_diagram_context: bool = False
+    image_urls: list[str] = []
 
 
 class RAGQueryResult(BaseModel):
@@ -32,3 +44,8 @@ class RAGQueryResult(BaseModel):
 
 class ChatResponse(RAGQueryResult):
     """Chat endpoint response payload."""
+
+    conversation_id: str | None = Field(
+        default=None,
+        description="Conversation UUID for this turn (new or existing).",
+    )

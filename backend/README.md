@@ -41,7 +41,7 @@ cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --host 
 
 ## Try the RAG stack (Phase 2 service check)
 
-1. Put one or more `*.pdf` files in `data/manuals/` (you can copy them from `frontend/src/assets/` while developing).
+1. Put one or more `*.pdf` files in `data/manuals/`.
 2. Export `GOOGLE_API_KEY` (or set `google_api_key` in `.env`).
 3. From `backend/` with the virtualenv active:
 
@@ -52,6 +52,13 @@ python -c "from app.core.dependencies import get_rag_service; print(get_rag_serv
 The first call builds an **in-memory** index (re-run after changing manuals, or call `get_rag_service().invalidate_index()` in a fresh process).
 
 If indexing fails with **429 / RESOURCE_EXHAUSTED** from Google, you hit embedding **rate limits or quota** on a large PDF. Wait a minute and retry, use a smaller manual while developing, or tune `.env`: larger `RAG_CHUNK_SIZE` (up to ~2048 tokens) and lower `EMBEDDING_BATCH_SIZE` to reduce bursts. For sustained load, check [Gemini rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) and billing on your Google AI project.
+
+## Diagram-heavy manuals (Gemini Vision at ingest time)
+
+During **PDF upload / ingestion**, the service renders select pages and calls **Gemini Flash (vision)** to write a searchable text description of schematics and figures. That text is embedded together with the page text so retrieval can answer diagram-related questions without sending images on every chat turn.
+
+- Controlled by `DIAGRAM_VISION_*` settings in `.env` (see `.env.example`). Set `DIAGRAM_VISION_ENABLED=false` to disable extra vision calls.
+- **Re-indexing required**: delete the manual in the UI and upload again (or clear the Chroma collection) so existing vectors pick up `page_number` and diagram descriptions.
 
 ## Try HTTP chat (Phase 3)
 
@@ -72,7 +79,9 @@ Expected response shape:
     {
       "text": "....",
       "file_name": "Example.pdf",
-      "score": 0.87
+      "score": 0.87,
+      "page_number": 62,
+      "has_diagram_context": true
     }
   ]
 }
@@ -88,3 +97,7 @@ Expected response shape:
 | `GET /docs` | Swagger UI |
 
 The frontend (Vite) is expected on `http://localhost:5173`; adjust `CORS_ORIGINS` in `.env` if needed.
+
+## Chat SQLite (`data/conversations.db`)
+
+El historial de conversaciones (por cuenta demo, cabecera `X-Demo-User`) vive en **`data/conversations.db`**. Para que el equipo vea el mismo historial al clonar o hacer `git pull`, **ese archivo está pensado para versionarse** en el repo (demo acotada). Si dos personas escriben a la vez sobre el mismo archivo en Git, pueden aparecer conflictos de merge: en ese caso conviene que solo una persona actualice el `.db` o usar un backend compartido con volumen persistente.

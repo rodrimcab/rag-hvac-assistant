@@ -1,14 +1,10 @@
+import { getApiBaseUrl } from "../../../lib/apiBaseUrl";
 import type { ChatDocumentSource } from "../types/message.types";
 import { ChatMessageBody } from "./ChatMessageBody";
 
 type ChatMessageSourcesProps = {
   sources: ChatDocumentSource[];
 };
-
-function formatScore(score: number | null | undefined): string | null {
-  if (score == null || Number.isNaN(Number(score))) return null;
-  return Number(score).toFixed(3);
-}
 
 export function ChatMessageSources({ sources }: ChatMessageSourcesProps) {
   if (!sources.length) return null;
@@ -21,7 +17,14 @@ export function ChatMessageSources({ sources }: ChatMessageSourcesProps) {
       <ul className="flex flex-col gap-2.5">
         {sources.map((source, index) => {
           const label = source.file_name?.trim() || "Fragmento del manual";
-          const scoreLabel = formatScore(source.score);
+          const pageNum =
+            typeof source.page_number === "number" && Number.isFinite(source.page_number)
+              ? source.page_number
+              : null;
+          const downloadHref =
+            source.file_name?.trim() && pageNum != null
+              ? `${getApiBaseUrl()}/api/documents/${encodeURIComponent(source.file_name.trim())}/download`
+              : null;
 
           return (
             <li
@@ -30,12 +33,27 @@ export function ChatMessageSources({ sources }: ChatMessageSourcesProps) {
             >
               <div className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="font-medium text-text-primary">{label}</span>
-                {scoreLabel ? (
-                  <span className="text-[10px] font-medium tabular-nums text-text-secondary/90">
-                    score {scoreLabel}
+                {pageNum != null ? (
+                  <span className="text-[10px] font-medium text-text-secondary/90">pág. {pageNum}</span>
+                ) : null}
+                {source.has_diagram_context ? (
+                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    diagrama
                   </span>
                 ) : null}
               </div>
+              {downloadHref && pageNum != null ? (
+                <p className="mb-1.5 text-[10px] text-text-secondary/80">
+                  <a
+                    href={downloadHref}
+                    download={source.file_name?.trim()}
+                    className="font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    Abrir PDF
+                  </a>
+                  <span className="text-text-secondary/70"> — revisá la página {pageNum} en el visor.</span>
+                </p>
+              ) : null}
               <div className="max-h-28 overflow-y-auto pr-0.5">
                 <ChatMessageBody
                   text={source.text.trim() || "—"}

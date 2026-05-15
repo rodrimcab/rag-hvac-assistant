@@ -1,4 +1,5 @@
 .venv/
+.venv-*/
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -7,3 +8,12 @@ chroma_db/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# macOS system files
+.DS_Store
+
+# Generated images from PDF ingestion
+data/images/
+
+# Local agent/IDE metadata
+.claude/

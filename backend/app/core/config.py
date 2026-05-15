@@ -24,8 +24,11 @@ class Settings(BaseSettings):
     # most capable tier accessible on Free tier today.
     gemini_llm_model: str = "models/gemini-2.5-flash"
     gemini_llm_temperature: float = 0.1
+    # If unset, diagram vision uses ``gemini_llm_model`` (same billing class as Flash).
+    gemini_vision_model: str | None = None
     gemini_embedding_model: str = "gemini-embedding-001"
     manuals_dir: str = "data/manuals"
+    images_dir: str = "data/images"
     rag_min_node_text_chars: int = 12
     # Winning config: 1024 / 200 offers the best recall/noise tradeoff on service manuals.
     rag_chunk_size: int = 1024
@@ -33,21 +36,48 @@ class Settings(BaseSettings):
     # Dynamic top_k per query intent (see RAGService._infer_mode).
     rag_diagnosis_top_k: int = 5
     rag_error_code_top_k: int = 3
-    # Conservative batching for the Free-tier limits of gemini-embedding-001:
-    # 5 items per call, spaced by `embedding_min_interval_seconds` to stay under RPM caps.
-    embedding_batch_size: int = 5
-    embedding_min_interval_seconds: float = 12.0
+    # Chroma distances are mapped to similarity via exp(-distance) in LlamaIndex; weak
+    # off-topic hits cluster ~0.50, solid manual hits are usually higher.
+    rag_source_score_floor: float = 0.515
+    rag_source_score_margin_from_top: float = 0.035
+    # Tier 1 batching for gemini-embedding-001: API maximum is 100 texts per request.
+    embedding_batch_size: int = 100
     # ChromaDB persistence (relative to `backend/`).
     chroma_db_path: str = "./chroma_db"
     chroma_collection_name: str = "hvac_manuals"
+    # SQLite chat persistence (path relative to `backend/`)
+    conversations_db_path: str = "data/conversations.db"
     # Upload limits.
     max_upload_mb: int = 50
+
+    # ── Diagram / page vision (ingestion only; not used per chat message) ─────
+    diagram_vision_enabled: bool = True
+    diagram_vision_max_pages_per_pdf: int = 10
+    diagram_vision_temperature: float = 0.15
+    diagram_vision_max_output_tokens: int = 1024
+    diagram_page_render_dpi: float = 140.0
+    diagram_page_image_max_width: int = 1280
+    diagram_jpeg_quality: int = 82
+    # Pages with at least this much extracted text skip vision (text-only chunking is enough).
+    diagram_skip_vision_min_text_chars: int = 2600
+    diagram_vision_min_images: int = 1
+    # Vector-heavy pages (schematics without embedded raster images) still trigger vision.
+    diagram_vision_min_drawings: int = 150
 
     @field_validator("cors_origins", mode="before")
     @classmethod
     def strip_origins(cls, v: object) -> object:
         if isinstance(v, str):
             return v.strip()
+        return v
+
+    @field_validator("gemini_vision_model", mode="before")
+    @classmethod
+    def empty_vision_model_to_none(cls, v: object) -> object:
+        if v is None:
+            return None
+        if isinstance(v, str) and not v.strip():
+            return None
         return v
 
     @property
@@ -64,5 +94,13 @@ class Settings(BaseSettings):
         return (self.backend_root / self.manuals_dir).resolve()
 
     @property
+    def images_path(self) -> Path:
+        return (self.backend_root / self.images_dir).resolve()
+
+    @property
     def chroma_db_absolute_path(self) -> Path:
         return (self.backend_root / self.chroma_db_path).resolve()
+
+    @property
+    def conversations_db_absolute_path(self) -> Path:
+        return (self.backend_root / self.conversations_db_path).resolve()
