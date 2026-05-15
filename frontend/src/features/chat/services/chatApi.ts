@@ -1,13 +1,17 @@
 import { getApiBaseUrl } from "../../../lib/apiBaseUrl";
+import { demoOwnerFetchHeaders } from "../../../lib/demoAccounts";
 import type { ChatDocumentSource } from "../types/message.types";
 
 export type ChatApiResponse = {
   answer: string;
   sources: ChatDocumentSource[];
+  conversation_id?: string | null;
 };
 
 type PostChatOptions = {
   brand?: string;
+  conversationId?: string;
+  demoOwnerId: string;
 };
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -63,10 +67,14 @@ async function requestChat(
   try {
     res = await fetch(`${base}/api/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...demoOwnerFetchHeaders(options?.demoOwnerId ?? "default"),
+      },
       body: JSON.stringify({
         message,
         ...(options?.brand ? { brand: options.brand } : {}),
+        ...(options?.conversationId ? { conversation_id: options.conversationId } : {}),
       }),
       signal: controller.signal,
     });

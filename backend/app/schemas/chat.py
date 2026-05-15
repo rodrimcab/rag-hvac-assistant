@@ -9,6 +9,10 @@ class ChatRequest(BaseModel):
     """Payload received from the chat endpoint."""
 
     message: str = Field(..., min_length=1, description="Natural-language user question.")
+    conversation_id: str | None = Field(
+        default=None,
+        description="UUID of an existing conversation. If omitted, a new conversation is created.",
+    )
     mode: QueryMode | None = Field(
         default=None,
         description="Override retrieval profile. If omitted, inferred from the question.",
@@ -40,3 +44,8 @@ class RAGQueryResult(BaseModel):
 
 class ChatResponse(RAGQueryResult):
     """Chat endpoint response payload."""
+
+    conversation_id: str | None = Field(
+        default=None,
+        description="Conversation UUID for this turn (new or existing).",
+    )

@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     # ChromaDB persistence (relative to `backend/`).
     chroma_db_path: str = "./chroma_db"
     chroma_collection_name: str = "hvac_manuals"
+    # SQLite chat persistence (path relative to `backend/`)
+    conversations_db_path: str = "data/conversations.db"
     # Upload limits.
     max_upload_mb: int = 50
 
@@ -98,3 +100,7 @@ class Settings(BaseSettings):
     @property
     def chroma_db_absolute_path(self) -> Path:
         return (self.backend_root / self.chroma_db_path).resolve()
+
+    @property
+    def conversations_db_absolute_path(self) -> Path:
+        return (self.backend_root / self.conversations_db_path).resolve()
