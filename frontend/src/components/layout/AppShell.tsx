@@ -8,9 +8,11 @@ type AppShellProps = {
   children: ReactNode;
   manualsCount: number;
   manualsNavActive: boolean;
+  settingsNavActive: boolean;
   /** Disables sidebar navigation and mobile menu while a manual is being imported. */
   navigationLocked?: boolean;
   onManualsClick: () => void;
+  onSettingsClick: () => void;
   onNewDiagnosis: () => void;
   onSelectThread: () => void;
 };
@@ -19,8 +21,10 @@ export function AppShell({
   children,
   manualsCount,
   manualsNavActive,
+  settingsNavActive,
   navigationLocked = false,
   onManualsClick,
+  onSettingsClick,
   onNewDiagnosis,
   onSelectThread,
 }: AppShellProps) {
@@ -53,10 +57,15 @@ export function AppShell({
         )}
         manualsCount={manualsCount}
         manualsNavActive={manualsNavActive}
+        settingsNavActive={settingsNavActive}
         navigationLocked={navigationLocked}
         onManualsClick={() => {
           setOpen(false);
           onManualsClick();
+        }}
+        onSettingsClick={() => {
+          setOpen(false);
+          onSettingsClick();
         }}
         onNewDiagnosis={() => {
           setOpen(false);

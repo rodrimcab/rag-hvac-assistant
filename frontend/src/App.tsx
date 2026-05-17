@@ -3,6 +3,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { ChatPanel } from "./features/chat/components/ChatPanel";
 import { ManualIngestBlockingLayer } from "./features/manuals/components/ManualIngestBlockingLayer";
 import { TechnicalManualsPanel } from "./features/manuals/components/TechnicalManualsPanel";
+import { ProjectCreditsPanel } from "./features/settings/components/ProjectCreditsPanel";
 import { MobileSidebarProvider } from "./components/providers/MobileSidebarProvider";
 import { useManuals } from "./features/manuals/hooks/useManuals";
 import { getPersistedAppState, updatePersistedAppState, type WorkspaceView } from "./lib/persistedAppState";
@@ -49,8 +50,10 @@ function App() {
         <AppShell
           manualsCount={manualsCount}
           manualsNavActive={workspaceView === "manuals"}
+          settingsNavActive={workspaceView === "settings"}
           navigationLocked={manualsWorkflowLocked}
           onManualsClick={() => setWorkspaceView("manuals")}
+          onSettingsClick={() => setWorkspaceView("settings")}
           onNewDiagnosis={() => setWorkspaceView("chat")}
           onSelectThread={() => setWorkspaceView("chat")}
         >
@@ -63,7 +66,7 @@ function App() {
           >
             {workspaceView === "chat" ? (
               <ChatPanel availableBrands={availableBrands} interactionLocked={manualsWorkflowLocked} />
-            ) : (
+            ) : workspaceView === "manuals" ? (
               <TechnicalManualsPanel
                 manuals={manuals}
                 ingestStatus={ingestStatus}
@@ -72,6 +75,8 @@ function App() {
                 onUpload={upload}
                 onRemove={remove}
               />
+            ) : (
+              <ProjectCreditsPanel />
             )}
           </ManualIngestBlockingLayer>
         </AppShell>

@@ -8,6 +8,24 @@ export type DemoAccountDefinition = {
   sessionUser: SessionUser;
 };
 
+const TEST_USER_COUNT = 6;
+
+function buildTestDemoAccounts(): DemoAccountDefinition[] {
+  return Array.from({ length: TEST_USER_COUNT }, (_, index) => {
+    const n = index + 1;
+    const label = `Usuario ${n}`;
+    return {
+      id: `usuario-${n}`,
+      label,
+      sessionUser: {
+        name: label,
+        roleLabel: "Cuenta personal • demo",
+        initials: String(n),
+      },
+    };
+  });
+}
+
 export const DEMO_ACCOUNTS: DemoAccountDefinition[] = [
   {
     id: "default",
@@ -18,15 +36,7 @@ export const DEMO_ACCOUNTS: DemoAccountDefinition[] = [
       initials: "G",
     },
   },
-  {
-    id: "daniel",
-    label: "Daniel",
-    sessionUser: {
-      name: "Daniel",
-      roleLabel: "Cuenta personal • demo",
-      initials: "D",
-    },
-  },
+  ...buildTestDemoAccounts(),
 ];
 
 export function isKnownDemoOwnerId(id: string): boolean {

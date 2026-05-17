@@ -17,10 +17,12 @@ type AppSidebarProps = {
   className?: string;
   manualsCount: number;
   manualsNavActive?: boolean;
+  settingsNavActive?: boolean;
   /** When true, chat navigation and system nav are disabled (e.g. manual import in progress). */
   navigationLocked?: boolean;
   onNewDiagnosis?: () => void;
   onManualsClick?: () => void;
+  onSettingsClick?: () => void;
   onSelectThread?: () => void;
 };
 
@@ -28,9 +30,11 @@ export function AppSidebar({
   className,
   manualsCount,
   manualsNavActive,
+  settingsNavActive,
   navigationLocked = false,
   onNewDiagnosis,
   onManualsClick,
+  onSettingsClick,
   onSelectThread,
 }: AppSidebarProps) {
   const { threads, selectedThreadId, setSelectedThreadId, startNewDiagnosis, deleteThread } =
@@ -111,6 +115,8 @@ export function AppSidebar({
           manualsCount={manualsCount}
           manualsActive={manualsNavActive}
           onManualsClick={onManualsClick}
+          settingsActive={settingsNavActive}
+          onSettingsClick={onSettingsClick}
           disabled={navigationLocked}
         />
         <SidebarAccountFooter />

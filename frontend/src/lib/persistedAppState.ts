@@ -3,7 +3,7 @@ import type { ChatThread } from "../features/chat/types/thread.types";
 
 const STORAGE_KEY = "rag-hvac-assistant:ui-state-v1";
 
-export type WorkspaceView = "chat" | "manuals";
+export type WorkspaceView = "chat" | "manuals" | "settings";
 
 type PersistedMessage = {
   id: string;
@@ -36,7 +36,9 @@ function parseStored(raw: string | null): PersistedAppStateV1 | null {
     if (!o || typeof o !== "object") return null;
     const rec = o as Record<string, unknown>;
     if (rec.v !== 1) return null;
-    if (rec.workspaceView !== "chat" && rec.workspaceView !== "manuals") return null;
+    if (rec.workspaceView !== "chat" && rec.workspaceView !== "manuals" && rec.workspaceView !== "settings") {
+      return null;
+    }
     const chat = rec.chat;
     if (!chat || typeof chat !== "object") return null;
     const c = chat as Record<string, unknown>;
