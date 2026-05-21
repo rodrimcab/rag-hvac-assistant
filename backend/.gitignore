@@ -4,6 +4,11 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .env
+
+# Chroma index is created at deploy/ingest; keep directory only
+chroma_db/*
+!chroma_db/.gitkeep
+
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
