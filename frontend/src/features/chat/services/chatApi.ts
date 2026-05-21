@@ -14,7 +14,7 @@ type PostChatOptions = {
   demoOwnerId: string;
 };
 
-const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 90_000;
 const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
 
 async function readErrorMessage(res: Response): Promise<string> {
