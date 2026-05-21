@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING
+
+from app.rag.google_keys import (
+    iter_google_api_keys,
+    is_retryable_google_quota_error,
+)
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -23,6 +29,7 @@ def describe_manual_page_image(
     file_name: str,
     brand_hint: str | None,
     settings: "Settings",
+    last_call_monotonic: list[float] | None = None,
 ) -> str:
     """
     Describe a single rendered PDF page for semantic retrieval.
@@ -33,19 +40,20 @@ def describe_manual_page_image(
     from google import genai
     from google.genai import types
 
-    api_key = settings.google_api_key
-    if not api_key:
-        import os
-
-        api_key = os.getenv("GOOGLE_API_KEY") or ""
-
-    if not api_key:
+    keys = list(iter_google_api_keys(settings))
+    if not keys:
         logger.warning("diagram_vision_skipped_no_api_key")
         return ""
 
     model = _normalize_model_id(
         settings.gemini_vision_model or settings.gemini_llm_model,
     )
+
+    interval = settings.effective_diagram_vision_min_interval_seconds
+    if interval > 0 and last_call_monotonic is not None:
+        wait = interval - (time.monotonic() - last_call_monotonic[0])
+        if wait > 0:
+            time.sleep(wait)
 
     brand_clause = f" Marca de contexto del archivo: {brand_hint}." if brand_hint else ""
     prompt = (
@@ -60,25 +68,48 @@ def describe_manual_page_image(
         "No inventes códigos de error, valores de presión ni datos que no se vean."
     )
 
-    client = genai.Client(api_key=api_key)
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=[
-                types.Part.from_text(text=prompt),
-                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-            ],
-            config=types.GenerateContentConfig(
-                temperature=float(settings.diagram_vision_temperature),
-                max_output_tokens=int(settings.diagram_vision_max_output_tokens),
-            ),
-        )
-    except Exception as exc:
-        logger.warning("diagram_vision_call_failed page=%s err=%s", page_number, exc)
-        return ""
+    free_interval = settings.free_diagram_vision_min_interval_seconds
+    last_exc: BaseException | None = None
 
-    if not getattr(response, "candidates", None):
-        return ""
+    for index, api_key in enumerate(keys):
+        if index > 0:
+            logger.warning(
+                "diagram_vision_retrying_with_fallback_api_key page=%s attempt=%s",
+                page_number,
+                index + 1,
+            )
+            if free_interval > 0:
+                time.sleep(free_interval)
 
-    text = (getattr(response, "text", None) or "").strip()
-    return text
+        client = genai.Client(api_key=api_key)
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=[
+                    types.Part.from_text(text=prompt),
+                    types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                ],
+                config=types.GenerateContentConfig(
+                    temperature=float(settings.diagram_vision_temperature),
+                    max_output_tokens=int(settings.diagram_vision_max_output_tokens),
+                ),
+            )
+        except Exception as exc:
+            last_exc = exc
+            if index >= len(keys) - 1 or not is_retryable_google_quota_error(exc):
+                logger.warning("diagram_vision_call_failed page=%s err=%s", page_number, exc)
+                return ""
+            continue
+
+        if last_call_monotonic is not None:
+            last_call_monotonic[0] = time.monotonic()
+
+        if not getattr(response, "candidates", None):
+            return ""
+
+        text = (getattr(response, "text", None) or "").strip()
+        return text
+
+    if last_exc is not None:
+        logger.warning("diagram_vision_call_failed page=%s err=%s", page_number, last_exc)
+    return ""

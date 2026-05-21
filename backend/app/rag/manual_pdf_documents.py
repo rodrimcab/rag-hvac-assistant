@@ -147,6 +147,7 @@ def build_documents_from_pdf(
         ) from exc
 
     documents: list[Document] = []
+    last_call = [0.0]
 
     page_images: dict[int, list[str]] = {}
     if images_base_dir is not None:
@@ -166,7 +167,7 @@ def build_documents_from_pdf(
             if settings.diagram_vision_enabled and _page_needs_vision(body, ic, dc, settings):
                 candidates.append((i, len(body), ic, dc))
 
-        max_v = int(settings.diagram_vision_max_pages_per_pdf)
+        max_v = int(settings.effective_diagram_vision_max_pages_per_pdf)
         if len(candidates) > max_v:
             candidates.sort(key=lambda x: (x[1], -(x[2] * 50 + min(x[3], 200))))
             vision_pages = {c[0] for c in candidates[:max_v]}
@@ -195,6 +196,7 @@ def build_documents_from_pdf(
                         file_name=file_name,
                         brand_hint=brand,
                         settings=settings,
+                        last_call_monotonic=last_call,
                     )
                 except Exception as exc:
                     logger.warning("diagram_vision_page_failed page=%s err=%s", pn, exc)

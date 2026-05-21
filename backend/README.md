@@ -16,7 +16,7 @@ python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
-# Set GOOGLE_API_KEY and copy PDF manuals into data/manuals/
+# Set GOOGLE_API_KEY (paid) and optionally GOOGLE_API_KEY_FREE (fallback); copy PDFs into data/manuals/
 ```
 
 ## Run API
@@ -42,7 +42,7 @@ cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --host 
 ## Try the RAG stack (Phase 2 service check)
 
 1. Put one or more `*.pdf` files in `data/manuals/`.
-2. Export `GOOGLE_API_KEY` (or set `google_api_key` in `.env`).
+2. Export `GOOGLE_API_KEY` (paid) and/or `GOOGLE_API_KEY_FREE` in `.env`.
 3. From `backend/` with the virtualenv active:
 
 ```bash

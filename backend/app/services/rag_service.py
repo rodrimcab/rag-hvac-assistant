@@ -7,6 +7,7 @@ from llama_index.core import VectorStoreIndex
 
 from app.core.config import Settings
 from app.rag.embeddings import build_embedding_model
+from app.rag.google_keys import has_google_api_key, is_retryable_google_quota_error, iter_google_api_keys
 from app.rag.llm import build_llm
 from app.rag.postprocessors import SkipEmptyNodePostprocessor
 from app.rag.prompts import ERROR_CODE_QA_TEMPLATE, TEXT_QA_TEMPLATE
@@ -127,12 +128,10 @@ class RAGService:
         self._index = None
 
     def _ensure_api_key(self) -> None:
-        if not self._settings.google_api_key:
-            import os
-            if not os.getenv("GOOGLE_API_KEY"):
-                raise ValueError(
-                    "Missing Google API key: set GOOGLE_API_KEY in the environment."
-                )
+        if not has_google_api_key(self._settings):
+            raise ValueError(
+                "Missing Google API key: set GOOGLE_API_KEY and/or GOOGLE_API_KEY_FREE."
+            )
 
     def _infer_mode(self, question: str) -> QueryMode:
         q = question.lower()
@@ -224,7 +223,6 @@ class RAGService:
         top_k, response_mode = self._retrieval_profile(effective_mode)
 
         index = self.get_index()
-        llm = build_llm(self._settings)
         if len(normalized_question) >= 120:
             top_k += 1
 
@@ -235,18 +233,11 @@ class RAGService:
             )
 
         template = ERROR_CODE_QA_TEMPLATE if effective_mode == "error_code" else TEXT_QA_TEMPLATE
-        engine = index.as_query_engine(
-            llm=llm,
-            similarity_top_k=top_k,
-            response_mode=response_mode,
-            filters=filters,
-            text_qa_template=template,
-            node_postprocessors=[
-                SkipEmptyNodePostprocessor(
-                    min_chars=self._settings.rag_min_node_text_chars,
-                ),
-            ],
-        )
+        postprocessors = [
+            SkipEmptyNodePostprocessor(
+                min_chars=self._settings.rag_min_node_text_chars,
+            ),
+        ]
         query_for_engine = normalized_question
         if conversation_context and conversation_context.strip():
             query_for_engine = (
@@ -256,7 +247,29 @@ class RAGService:
                 f"PREGUNTA ACTUAL:\n{normalized_question}"
             )
 
-        response = engine.query(query_for_engine)
+        api_keys = list(iter_google_api_keys(self._settings))
+        response = None
+        last_exc: BaseException | None = None
+        for index_key, api_key in enumerate(api_keys):
+            llm = build_llm(self._settings, api_key=api_key)
+            engine = index.as_query_engine(
+                llm=llm,
+                similarity_top_k=top_k,
+                response_mode=response_mode,
+                filters=filters,
+                text_qa_template=template,
+                node_postprocessors=postprocessors,
+            )
+            try:
+                response = engine.query(query_for_engine)
+                break
+            except BaseException as exc:
+                last_exc = exc
+                if index_key >= len(api_keys) - 1 or not is_retryable_google_quota_error(exc):
+                    raise
+        if response is None:
+            assert last_exc is not None
+            raise last_exc
 
         sources: list[RetrievedSourceChunk] = []
         min_src = self._settings.rag_min_node_text_chars

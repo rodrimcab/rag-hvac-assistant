@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # RAG / Gemini (optional until you run indexing or queries)
+    # Paid / primary key (Tier 1). Falls back to ``google_api_key_free`` on quota errors.
     google_api_key: str | None = None
+    # Free-tier key — used when the paid key is unset or hits quota (429).
+    google_api_key_free: str | None = None
     # Gemini 1.5 Pro was retired from the consumer API (404). Gemini 2.5 Pro is
     # paid-tier-only on new projects (Free-tier quota = 0). Flash 2.5 is the
     # most capable tier accessible on Free tier today.
@@ -42,6 +45,10 @@ class Settings(BaseSettings):
     rag_source_score_margin_from_top: float = 0.035
     # Tier 1 batching for gemini-embedding-001: API maximum is 100 texts per request.
     embedding_batch_size: int = 100
+    embedding_min_interval_seconds: float = 0.0
+    # Free-tier RPM caps (~5 RPM on gemini-embedding-001).
+    free_embedding_batch_size: int = 5
+    free_embedding_min_interval_seconds: float = 12.0
     # ChromaDB persistence (relative to `backend/`).
     chroma_db_path: str = "./chroma_db"
     chroma_collection_name: str = "hvac_manuals"
@@ -53,6 +60,9 @@ class Settings(BaseSettings):
     # ── Diagram / page vision (ingestion only; not used per chat message) ─────
     diagram_vision_enabled: bool = True
     diagram_vision_max_pages_per_pdf: int = 10
+    diagram_vision_min_interval_seconds: float = 0.0
+    free_diagram_vision_max_pages_per_pdf: int = 45
+    free_diagram_vision_min_interval_seconds: float = 2.0
     diagram_vision_temperature: float = 0.15
     diagram_vision_max_output_tokens: int = 1024
     diagram_page_render_dpi: float = 140.0
@@ -79,6 +89,37 @@ class Settings(BaseSettings):
         if isinstance(v, str) and not v.strip():
             return None
         return v
+
+    @property
+    def uses_free_tier_limits(self) -> bool:
+        """Throttle ingestion when no paid API key is configured."""
+        import os
+
+        return not (self.google_api_key or (os.getenv("GOOGLE_API_KEY") or "").strip())
+
+    @property
+    def effective_embedding_batch_size(self) -> int:
+        if self.uses_free_tier_limits:
+            return self.free_embedding_batch_size
+        return self.embedding_batch_size
+
+    @property
+    def effective_embedding_min_interval_seconds(self) -> float:
+        if self.uses_free_tier_limits:
+            return self.free_embedding_min_interval_seconds
+        return self.embedding_min_interval_seconds
+
+    @property
+    def effective_diagram_vision_max_pages_per_pdf(self) -> int:
+        if self.uses_free_tier_limits:
+            return self.free_diagram_vision_max_pages_per_pdf
+        return self.diagram_vision_max_pages_per_pdf
+
+    @property
+    def effective_diagram_vision_min_interval_seconds(self) -> float:
+        if self.uses_free_tier_limits:
+            return self.free_diagram_vision_min_interval_seconds
+        return self.diagram_vision_min_interval_seconds
 
     @property
     def cors_origins_list(self) -> list[str]:
