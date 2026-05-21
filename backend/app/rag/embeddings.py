@@ -3,6 +3,7 @@ import threading
 import time
 from collections.abc import Callable
 
+import google.genai
 from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 from pydantic import Field, PrivateAttr
 
@@ -59,6 +60,21 @@ class ResilientGoogleGenAIEmbedding(ThrottledGoogleGenAIEmbedding):
         super().__init__(**kwargs)
         self._settings = settings
 
+    def _set_client_api_key(self, api_key: str) -> None:
+        """Swap the GenAI client; ``api_key`` is not a Pydantic field on the base class."""
+        self._client = google.genai.Client(api_key=api_key)
+
+    def _throttled_get_text_embeddings(self, texts: list[str]) -> list[list[float]]:
+        # Call ThrottledGoogleGenAIEmbedding via super(); unbound Class._method(self, …)
+        # breaks llama_index's instrumented wrappers (TypeError: missing 'query'/args).
+        return super()._get_text_embeddings(texts)
+
+    def _throttled_get_text_embedding(self, text: str) -> list[float]:
+        return super()._get_text_embedding(text)
+
+    def _throttled_get_query_embedding(self, query: str) -> list[float]:
+        return super()._get_query_embedding(query)
+
     def _run_with_fallback(
         self,
         operation: str,
@@ -78,7 +94,7 @@ class ResilientGoogleGenAIEmbedding(ThrottledGoogleGenAIEmbedding):
                 if free_interval > 0:
                     time.sleep(free_interval)
                     self.min_interval_seconds = free_interval
-            self.api_key = api_key
+            self._set_client_api_key(api_key)
             try:
                 return runner()
             except BaseException as exc:
@@ -91,19 +107,19 @@ class ResilientGoogleGenAIEmbedding(ThrottledGoogleGenAIEmbedding):
     def _get_text_embeddings(self, texts: list[str]) -> list[list[float]]:
         return self._run_with_fallback(
             "embed_batch",
-            lambda: ThrottledGoogleGenAIEmbedding._get_text_embeddings(self, texts),
+            lambda: self._throttled_get_text_embeddings(texts),
         )
 
     def _get_text_embedding(self, text: str) -> list[float]:
         return self._run_with_fallback(
             "embed_one",
-            lambda: ThrottledGoogleGenAIEmbedding._get_text_embedding(self, text),
+            lambda: self._throttled_get_text_embedding(text),
         )
 
     def _get_query_embedding(self, query: str) -> list[float]:
         return self._run_with_fallback(
             "embed_query",
-            lambda: ThrottledGoogleGenAIEmbedding._get_query_embedding(self, query),
+            lambda: self._throttled_get_query_embedding(query),
         )
 
 
