@@ -6,8 +6,8 @@ __pycache__/
 .env
 
 # Chroma index is created at deploy/ingest; keep directory only
-chroma_db/*
-!chroma_db/.gitkeep
+data/chroma_db/*
+!data/chroma_db/.gitkeep
 
 .pytest_cache/
 .mypy_cache/

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from app.core.paths import CHROMA_DIR, IMAGES_DIR, MANUALS_DIR, SQLITE_PATH
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,8 +31,8 @@ class Settings(BaseSettings):
     # If unset, diagram vision uses ``gemini_llm_model`` (same billing class as Flash).
     gemini_vision_model: str | None = None
     gemini_embedding_model: str = "gemini-embedding-001"
-    manuals_dir: str = "data/manuals"
-    images_dir: str = "data/images"
+    manuals_dir: str = str(MANUALS_DIR)
+    images_dir: str = str(IMAGES_DIR)
     rag_min_node_text_chars: int = 12
     # Winning config: 1024 / 200 offers the best recall/noise tradeoff on service manuals.
     rag_chunk_size: int = 1024
@@ -50,10 +51,10 @@ class Settings(BaseSettings):
     free_embedding_batch_size: int = 5
     free_embedding_min_interval_seconds: float = 12.0
     # ChromaDB persistence (relative to `backend/`).
-    chroma_db_path: str = "./chroma_db"
+    chroma_db_path: str = str(CHROMA_DIR)
     chroma_collection_name: str = "hvac_manuals"
     # SQLite chat persistence (path relative to `backend/`)
-    conversations_db_path: str = "data/conversations.db"
+    conversations_db_path: str = str(SQLITE_PATH)
     # Upload limits.
     max_upload_mb: int = 50
 
