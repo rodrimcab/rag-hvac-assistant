@@ -310,6 +310,31 @@ class RAGService:
         text_kept = self._filter_sources_by_similarity(text_only)
         return self._merge_source_chunks(images_kept, text_kept)
 
+    def _gallery_high_similarity_candidates(
+        self,
+        with_images: list[RetrievedSourceChunk],
+        *,
+        diagram_heavy: bool,
+        all_sources: list[RetrievedSourceChunk],
+    ) -> list[RetrievedSourceChunk]:
+        """Figuras con score alto y muy cercano al mejor hit del prompt (sin relleno)."""
+        min_score = self._settings.rag_gallery_min_image_score
+        if diagram_heavy:
+            margin_eligible = self._filter_sources_by_similarity(
+                with_images,
+                margin_from_top=self._settings.rag_diagram_image_score_margin,
+            )
+        else:
+            scored_all = [s for s in all_sources if s.score is not None]
+            if not scored_all:
+                return []
+            top_global = max(s.score for s in scored_all)  # type: ignore[type-var]
+            margin = self._settings.rag_gallery_context_score_margin
+            cutoff = max(min_score, top_global - margin)
+            margin_eligible = [s for s in with_images if (s.score or 0) >= cutoff]
+
+        return [s for s in margin_eligible if (s.score or 0) >= min_score]
+
     def _gallery_eligible_image_keys(
         self,
         sources: list[RetrievedSourceChunk],
@@ -322,20 +347,11 @@ class RAGService:
         if not with_images or max_pages <= 0:
             return set()
 
-        if diagram_heavy:
-            eligible = self._filter_sources_by_similarity(
-                with_images,
-                margin_from_top=self._settings.rag_diagram_image_score_margin,
-            )
-        else:
-            scored_all = [s for s in sources if s.score is not None]
-            if not scored_all:
-                return set()
-            top_global = max(s.score for s in scored_all)  # type: ignore[type-var]
-            margin = self._settings.rag_gallery_context_score_margin
-            cutoff = max(self._settings.rag_source_score_floor, top_global - margin)
-            eligible = [s for s in with_images if (s.score or 0) >= cutoff]
-
+        eligible = self._gallery_high_similarity_candidates(
+            with_images,
+            diagram_heavy=diagram_heavy,
+            all_sources=sources,
+        )
         ranked = sorted(eligible, key=lambda s: s.score or 0.0, reverse=True)
         return {self._source_key(s) for s in ranked[:max_pages]}
 

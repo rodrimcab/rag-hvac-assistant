@@ -7,7 +7,7 @@ type Props = { sources: ChatDocumentSource[] };
 type DiagramEntry = { url: string; fullUrl: string; page: number | null };
 
 /** Tope alineado con backend `rag_max_gallery_image_sources` (el backend puede enviar menos). */
-const MAX_DIAGRAMS = 8;
+const MAX_DIAGRAMS = 6;
 
 /**
  * Solo imágenes ya filtradas por el backend; tope de seguridad en UI.

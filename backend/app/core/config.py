@@ -42,16 +42,16 @@ class Settings(BaseSettings):
     rag_error_code_top_k: int = 3
     # Consultas explícitas sobre diagramas — algo más de recall que diagnóstico (5).
     rag_diagram_top_k: int = 8
-    # Tope de páginas con figuras en galería (0..8 según relevancia; no se rellena al máximo).
-    rag_max_gallery_image_sources: int = 8
+    # Tope de páginas con figuras en galería (0..6 solo con similitud alta; sin relleno).
+    rag_max_gallery_image_sources: int = 6
     # Chroma distances are mapped to similarity via exp(-distance) in LlamaIndex; weak
     # off-topic hits cluster ~0.50, solid manual hits are usually higher.
     rag_source_score_floor: float = 0.515
     rag_source_score_margin_from_top: float = 0.035
-    # Margen entre figuras en consultas explícitas de diagrama.
-    rag_diagram_image_score_margin: float = 0.022
-    # En el resto de consultas: la figura debe puntuar cerca del mejor hit global del prompt.
-    rag_gallery_context_score_margin: float = 0.028
+    # Galería: umbral absoluto y márgenes estrictos respecto al mejor hit del prompt.
+    rag_gallery_min_image_score: float = 0.535
+    rag_diagram_image_score_margin: float = 0.015
+    rag_gallery_context_score_margin: float = 0.018
     # Tier 1 batching for gemini-embedding-001: API maximum is 100 texts per request.
     embedding_batch_size: int = 100
     embedding_min_interval_seconds: float = 0.0

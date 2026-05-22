@@ -3,6 +3,8 @@ import type { ChatDocumentSource } from "../types/message.types";
 const MIN_SNIPPET_CHARS = 12;
 /** Alineado con backend `rag_source_score_floor` (similitud exp(-distancia Chroma)). */
 const MIN_SOURCE_SCORE = 0.515;
+/** Galería: solo imágenes con similitud alta (`rag_gallery_min_image_score`). */
+const MIN_GALLERY_IMAGE_SCORE = 0.535;
 
 function hasDocumentReference(s: ChatDocumentSource): boolean {
   if (s.file_name?.trim()) return true;
@@ -25,7 +27,7 @@ export function filterDisplayableDocumentSources(
   });
 }
 
-/** Fuentes con imágenes ya validadas por el backend (0..8; mejor score primero). */
+/** Fuentes con imágenes de alta similitud (0..6; mejor score primero). */
 export function sourcesWithDiagramImages(
   sources: ChatDocumentSource[] | undefined | null,
 ): ChatDocumentSource[] {
@@ -34,7 +36,8 @@ export function sourcesWithDiagramImages(
     .filter((s) => {
       if (!(s.image_urls?.length ?? 0)) return false;
       if (!hasDocumentReference(s)) return false;
-      if (s.score != null && !Number.isNaN(Number(s.score)) && Number(s.score) < MIN_SOURCE_SCORE) {
+      const score = s.score != null ? Number(s.score) : null;
+      if (score == null || Number.isNaN(score) || score < MIN_GALLERY_IMAGE_SCORE) {
         return false;
       }
       return true;
