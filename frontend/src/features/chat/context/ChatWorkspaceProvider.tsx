@@ -17,6 +17,7 @@ import {
 import { useDemoAccount } from "../../demo-account/DemoAccountProvider";
 import type { ChatAttachment, ChatMessage } from "../types/message.types";
 import type { ChatThread } from "../types/thread.types";
+import { DEFAULT_THREAD_TITLE } from "../constants";
 import { ChatWorkspaceContext } from "./chat-workspace-context";
 
 type ChatWorkspaceProviderProps = {
@@ -25,7 +26,7 @@ type ChatWorkspaceProviderProps = {
 
 function truncateThreadTitle(text: string, max = 52): string {
   const t = text.trim().replace(/\s+/g, " ");
-  if (!t.length) return "Nuevo diagnóstico";
+  if (!t.length) return DEFAULT_THREAD_TITLE;
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1).trimEnd()}…`;
 }
@@ -48,7 +49,7 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
   }, [extraByThread, selectedThreadId]);
 
   const activeTitle = useMemo(() => {
-    if (!selectedThreadId) return "Nuevo diagnóstico";
+    if (!selectedThreadId) return DEFAULT_THREAD_TITLE;
     return threads.find((t) => t.id === selectedThreadId)?.title ?? "Chat";
   }, [threads, selectedThreadId]);
 
@@ -181,7 +182,6 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
         return false;
       }
 
-      const titleSource = trimmed || attachments[0]?.name || "Nuevo diagnóstico";
       const now = new Date();
       const wasNewSession = selectedThreadId === null;
       let targetThreadId: string;
@@ -189,7 +189,7 @@ export function ChatWorkspaceProvider({ children }: ChatWorkspaceProviderProps) 
       if (!selectedThreadId) {
         let created;
         try {
-          created = await createConversation(ownerId, { title: truncateThreadTitle(titleSource) });
+          created = await createConversation(ownerId, { title: DEFAULT_THREAD_TITLE });
         } catch {
           setChatError("No se pudo iniciar el diagnóstico. Verificá que el backend esté en ejecución.");
           return false;

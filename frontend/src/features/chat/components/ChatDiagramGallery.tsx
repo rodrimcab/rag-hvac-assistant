@@ -6,22 +6,33 @@ type Props = { sources: ChatDocumentSource[] };
 
 type DiagramEntry = { url: string; fullUrl: string; page: number | null };
 
-function collectDiagrams(sources: ChatDocumentSource[], max = 4): DiagramEntry[] {
-  const sorted = [...sources].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+/** Todas las imágenes únicas de las fuentes, ordenadas por página (pasos secuenciales). */
+function collectDiagrams(sources: ChatDocumentSource[]): DiagramEntry[] {
   const seen = new Set<string>();
-  const result: DiagramEntry[] = [];
+  const entries: Array<DiagramEntry & { score: number }> = [];
   const base = getApiBaseUrl();
 
-  for (const source of sorted) {
+  for (const source of sources) {
+    const score = source.score ?? 0;
+    const rawPage = source.page_number;
+    const page =
+      typeof rawPage === "number" && Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : null;
+
     for (const url of source.image_urls ?? []) {
-      if (!seen.has(url)) {
-        seen.add(url);
-        result.push({ url, fullUrl: `${base}${url}`, page: source.page_number ?? null });
-      }
+      if (seen.has(url)) continue;
+      seen.add(url);
+      entries.push({ url, fullUrl: `${base}${url}`, page, score });
     }
-    if (result.length >= max) break;
   }
-  return result;
+
+  entries.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    const pageA = a.page ?? Number.MAX_SAFE_INTEGER;
+    const pageB = b.page ?? Number.MAX_SAFE_INTEGER;
+    return pageA - pageB;
+  });
+
+  return entries.map(({ url, fullUrl, page }) => ({ url, fullUrl, page }));
 }
 
 export function ChatDiagramGallery({ sources }: Props) {
@@ -44,6 +55,11 @@ export function ChatDiagramGallery({ sources }: Props) {
       <div className="mt-3 border-t border-border pt-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
           Diagramas relevantes
+          {diagrams.length > 1 ? (
+            <span className="ml-1.5 font-normal normal-case tracking-normal text-text-disabled">
+              ({diagrams.length})
+            </span>
+          ) : null}
         </p>
         <div className="flex flex-wrap gap-2">
           {diagrams.map(({ url, fullUrl, page }) => (
@@ -51,7 +67,7 @@ export function ChatDiagramGallery({ sources }: Props) {
               key={url}
               type="button"
               onClick={() => setLightboxUrl(fullUrl)}
-              className="cursor-zoom-in overflow-hidden rounded-md border border-border transition-colors hover:border-primary"
+              className="relative cursor-zoom-in overflow-hidden rounded-md border border-border transition-colors hover:border-primary"
               title={page ? `Diagrama — pág. ${page}` : "Ver diagrama"}
             >
               <img
@@ -60,6 +76,11 @@ export function ChatDiagramGallery({ sources }: Props) {
                 loading="lazy"
                 className="max-h-40 w-auto max-w-[13rem] object-contain"
               />
+              {page ? (
+                <span className="absolute bottom-1 right-1 rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                  p. {page}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>

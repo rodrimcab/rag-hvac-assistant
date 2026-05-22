@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     # Dynamic top_k per query intent (see RAGService._infer_mode).
     rag_diagnosis_top_k: int = 5
     rag_error_code_top_k: int = 3
+    # Consultas sobre diagramas / procedimientos gráficos — más páginas recuperadas.
+    rag_diagram_top_k: int = 12
     # Chroma distances are mapped to similarity via exp(-distance) in LlamaIndex; weak
     # off-topic hits cluster ~0.50, solid manual hits are usually higher.
     rag_source_score_floor: float = 0.515

@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { useAuth } from "../../../hooks/useAuth";
+import { NEW_DIAGNOSIS_EMPTY_HINT } from "../constants";
 import type { ChatMessage } from "../types/message.types";
 import { formatDaySeparatorLabel } from "../utils/formatDaySeparatorLabel";
 import { sameCalendarDay } from "../utils/sameCalendarDay";
@@ -35,7 +36,7 @@ export function ChatMessageList({
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center sm:px-6">
         <p className="max-w-sm text-sm leading-relaxed text-text-secondary">
           {isNewDiagnosisSession
-            ? "Describí el síntoma, el modelo del equipo o el código de error para iniciar un diagnóstico nuevo."
+            ? NEW_DIAGNOSIS_EMPTY_HINT
             : "No hay mensajes en este diagnóstico."}
         </p>
       </div>

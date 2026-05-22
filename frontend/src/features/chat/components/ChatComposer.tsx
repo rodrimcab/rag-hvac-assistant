@@ -1,6 +1,7 @@
 import { ArrowUp, Loader2 } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../../../lib/cn";
+import { CHAT_COMPOSER_PLACEHOLDER } from "../constants";
 import { useChatWorkspace } from "../hooks/useChatWorkspace";
 
 /** Equivalente a `max-h-40` (10rem) con `text-base` en raíz. */
@@ -78,25 +79,7 @@ export function ChatComposer({ availableBrands, interactionLocked = false }: Cha
         ) : null}
 
         <div className="rounded-2xl border border-border bg-background/50 shadow-sm">
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => {
-              if (chatError) clearChatError();
-              setDraft(e.target.value);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (canSend) void handleSend();
-              }
-            }}
-            placeholder="Describí el síntoma o código de error..."
-            rows={1}
-            className="max-h-40 min-h-[3rem] w-full resize-none rounded-t-2xl border-0 bg-transparent px-4 py-3 text-sm text-text-primary placeholder:text-text-disabled focus:outline-none focus:ring-0"
-          />
-
-          <div className="flex items-center justify-end gap-1 rounded-b-2xl border-t border-border/60 px-2 py-2">
+          <div className="relative">
             <button
               type="button"
               aria-label={isChatLoading ? "Consultando manuales" : "Enviar mensaje"}
@@ -104,7 +87,7 @@ export function ChatComposer({ availableBrands, interactionLocked = false }: Cha
               disabled={!canSend}
               onClick={() => void handleSend()}
               className={cn(
-                "flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-sm transition-colors",
+                "absolute right-2 top-2 z-10 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-sm transition-colors",
                 "hover:bg-primary-hover active:bg-primary-active",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus",
                 "disabled:pointer-events-none disabled:opacity-40",
@@ -116,30 +99,48 @@ export function ChatComposer({ availableBrands, interactionLocked = false }: Cha
                 <ArrowUp className="size-4" strokeWidth={2.5} />
               )}
             </button>
-          </div>
-        </div>
 
-        <div className="mt-1 flex flex-col items-center gap-1 sm:flex-row sm:justify-between">
-          <p className="text-center text-[11px] leading-snug text-text-secondary">
-            hvac-assistant responde únicamente con base en manuales técnicos oficiales.
-          </p>
-          <div className="flex items-center gap-1.5">
-            <label htmlFor={brandSelectId} className="text-[11px] text-text-secondary">
-              Marca
-            </label>
-            <select
-              id={brandSelectId}
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              className="rounded-md border border-border bg-white px-2 py-1 text-[11px] text-text-primary focus:border-primary focus:outline-none"
-            >
-              <option value="">Todas</option>
-              {availableBrands.map((brand) => (
-                <option key={brand} value={brand}>
-                  {brand}
-                </option>
-              ))}
-            </select>
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => {
+                if (chatError) clearChatError();
+                setDraft(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (canSend) void handleSend();
+                }
+              }}
+              placeholder={CHAT_COMPOSER_PLACEHOLDER}
+              rows={1}
+              className="max-h-40 min-h-[3rem] w-full resize-none border-0 bg-transparent py-3 pl-4 pr-14 text-sm text-text-primary placeholder:text-text-disabled focus:outline-none focus:ring-0"
+            />
+          </div>
+
+          <div className="flex flex-col items-center gap-1.5 border-t border-border/60 px-3 py-2 sm:flex-row sm:justify-between">
+            <p className="text-center text-[11px] leading-snug text-text-secondary">
+              hvac-assistant responde únicamente con base en manuales técnicos oficiales.
+            </p>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <label htmlFor={brandSelectId} className="text-[11px] text-text-secondary">
+                Marca
+              </label>
+              <select
+                id={brandSelectId}
+                value={selectedBrand}
+                onChange={(e) => setSelectedBrand(e.target.value)}
+                className="rounded-md border border-border bg-white px-2 py-1 text-[11px] text-text-primary focus:border-primary focus:outline-none"
+              >
+                <option value="">Todas</option>
+                {availableBrands.map((brand) => (
+                  <option key={brand} value={brand}>
+                    {brand}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>

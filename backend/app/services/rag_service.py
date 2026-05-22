@@ -13,6 +13,7 @@ from app.rag.postprocessors import SkipEmptyNodePostprocessor
 from app.rag.prompts import ERROR_CODE_QA_TEMPLATE, TEXT_QA_TEMPLATE
 from app.rag.vector_store import open_chroma_index
 from app.schemas.chat import QueryMode, RAGQueryResult, RetrievedSourceChunk
+from app.util.query_language import answer_language_directive, detect_answer_language
 
 # Rule 2: letra(s) + dígito(s) [+ letra/dígito opcionales]: E6, F1, CH10, A1D2, E1A, FC-01
 _ERROR_CODE_ALPHANUM = re.compile(
@@ -74,6 +75,15 @@ _MANUAL_LOOKUP_HINTS = frozenset({
     "tubo", "tubos", "linea", "lineas", "soldadura", "vacuum", "vacio",
     "superheat", "subcool", "lockout", "arranque", "parada",
     "filtro", "serpentin", "intercambiador", "gas caliente",
+})
+
+# Consultas donde conviene recuperar más páginas con figuras (sin tope en la UI).
+_DIAGRAM_QUERY_HINTS = frozenset({
+    "diagrama", "diagram", "despiece", "procedimiento", "instalacion", "desmontaje",
+    "montaje", "armado", "figura", "esquema", "cableado", "wiring", "grafico",
+    "ilustracion", "assembly", "disassembly", "paso a paso", "como se instala",
+    "como instalar", "como desmontar", "como montar",
+    "remoto", "remote", "control remoto", "timer", "weekly", "lcd",
 })
 
 # Meta / off-topic: never attach «sources» for these (accent-folded substring match).
@@ -180,6 +190,11 @@ class RAGService:
                 return True
         return False
 
+    @staticmethod
+    def _is_diagram_heavy_query(question: str) -> bool:
+        folded = _fold_accents(" ".join(question.split()))
+        return any(hint in folded for hint in _DIAGRAM_QUERY_HINTS)
+
     def _filter_sources_by_similarity(self, sources: list[RetrievedSourceChunk]) -> list[RetrievedSourceChunk]:
         scored = [s for s in sources if s.score is not None]
         if not scored:
@@ -190,10 +205,114 @@ class RAGService:
         cutoff = max(floor, top - margin)
         return [s for s in sources if s.score is not None and s.score >= cutoff]
 
-    def _retrieval_profile(self, mode: QueryMode) -> tuple[int, str]:
+    @staticmethod
+    def _parse_image_urls(meta: dict) -> list[str]:
+        raw_urls = meta.get("image_urls", "[]")
+        try:
+            if isinstance(raw_urls, str):
+                parsed = json.loads(raw_urls)
+                return parsed if isinstance(parsed, list) else []
+            return raw_urls if isinstance(raw_urls, list) else []
+        except (json.JSONDecodeError, ValueError):
+            return []
+
+    def _chunk_from_node(
+        self,
+        node: object,
+        *,
+        score: float | None,
+        min_src: int,
+    ) -> RetrievedSourceChunk | None:
+        node_text = node.get_text()  # type: ignore[attr-defined]
+        if len((node_text or "").strip()) < min_src:
+            return None
+        meta = getattr(node, "metadata", None) or {}
+        file_name = meta.get("file_name")
+        if not isinstance(file_name, str):
+            file_name = None
+        raw_page = meta.get("page_number")
+        page_number: int | None = None
+        if raw_page is not None:
+            try:
+                pn = int(raw_page)
+                page_number = pn if pn >= 1 else None
+            except (TypeError, ValueError):
+                page_number = None
+        return RetrievedSourceChunk(
+            text=node_text,
+            file_name=file_name,
+            score=score,
+            page_number=page_number,
+            has_diagram_context=bool(meta.get("has_diagram_context", False)),
+            image_urls=self._parse_image_urls(meta),
+        )
+
+    @staticmethod
+    def _source_key(chunk: RetrievedSourceChunk) -> tuple[str | None, int | None]:
+        return (chunk.file_name, chunk.page_number)
+
+    def _merge_source_chunks(self, *groups: list[RetrievedSourceChunk]) -> list[RetrievedSourceChunk]:
+        merged: dict[tuple[str | None, int | None], RetrievedSourceChunk] = {}
+        for group in groups:
+            for chunk in group:
+                key = self._source_key(chunk)
+                prev = merged.get(key)
+                if prev is None:
+                    merged[key] = chunk
+                    continue
+                urls = list(dict.fromkeys((prev.image_urls or []) + (chunk.image_urls or [])))
+                best = chunk if (chunk.score or 0) >= (prev.score or 0) else prev
+                other = prev if best is chunk else chunk
+                merged[key] = best.model_copy(
+                    update={
+                        "image_urls": urls,
+                        "has_diagram_context": prev.has_diagram_context or chunk.has_diagram_context,
+                        "text": best.text if len(best.text) >= len(other.text) else other.text,
+                    },
+                )
+        return list(merged.values())
+
+    def _collect_sources_from_scored_nodes(
+        self,
+        nodes: list[object] | None,
+        min_src: int,
+    ) -> list[RetrievedSourceChunk]:
+        out: list[RetrievedSourceChunk] = []
+        for item in nodes or []:
+            score = float(item.score) if getattr(item, "score", None) is not None else None  # type: ignore[attr-defined]
+            node = getattr(item, "node", item)
+            chunk = self._chunk_from_node(node, score=score, min_src=min_src)
+            if chunk is not None:
+                out.append(chunk)
+        return out
+
+    def _filter_sources_for_diagrams(self, sources: list[RetrievedSourceChunk]) -> list[RetrievedSourceChunk]:
+        """
+        Filtra por margen respecto al mejor hit en cada grupo.
+
+        Las páginas con figura se comparan entre sí (no contra chunks solo texto,
+        que suelen puntuar más alto). Así se mantienen varios diagramas cercanos
+        al top del prompt y se descartan figuras débiles (p. ej. mando remoto).
+        """
+        with_images = [s for s in sources if s.image_urls]
+        text_only = [s for s in sources if not s.image_urls]
+        images_kept = self._filter_sources_by_similarity(with_images)
+        if with_images and not images_kept:
+            images_kept = sorted(
+                with_images,
+                key=lambda s: s.score or 0.0,
+                reverse=True,
+            )[:3]
+        text_kept = self._filter_sources_by_similarity(text_only)
+        return self._merge_source_chunks(images_kept, text_kept)
+
+    def _retrieval_profile(self, mode: QueryMode, question: str) -> tuple[int, str]:
         if mode == "error_code":
             return self._settings.rag_error_code_top_k, "compact"
-        return self._settings.rag_diagnosis_top_k, "tree_summarize"
+        top_k = self._settings.rag_diagnosis_top_k
+        if self._is_diagram_heavy_query(question):
+            top_k = max(top_k, self._settings.rag_diagram_top_k)
+        return top_k, "tree_summarize"
 
     def get_index(self) -> VectorStoreIndex:
         if self._index is None:
@@ -220,7 +339,7 @@ class RAGService:
         normalized_question = self._normalize_question(question)
         normalized_brand = self._normalize_brand(brand)
         effective_mode: QueryMode = mode or self._infer_mode(normalized_question)
-        top_k, response_mode = self._retrieval_profile(effective_mode)
+        top_k, response_mode = self._retrieval_profile(effective_mode, normalized_question)
 
         index = self.get_index()
         if len(normalized_question) >= 120:
@@ -238,7 +357,6 @@ class RAGService:
                 min_chars=self._settings.rag_min_node_text_chars,
             ),
         ]
-        query_for_engine = normalized_question
         if conversation_context and conversation_context.strip():
             query_for_engine = (
                 "[Contexto reciente de la misma conversación — referencia; "
@@ -246,6 +364,13 @@ class RAGService:
                 f"{conversation_context.strip()}\n\n"
                 f"PREGUNTA ACTUAL:\n{normalized_question}"
             )
+        else:
+            query_for_engine = f"PREGUNTA ACTUAL:\n{normalized_question}"
+
+        answer_lang = detect_answer_language(normalized_question)
+        query_for_engine = (
+            f"{answer_language_directive(answer_lang)}\n\n{query_for_engine}"
+        )
 
         api_keys = list(iter_google_api_keys(self._settings))
         response = None
@@ -271,47 +396,35 @@ class RAGService:
             assert last_exc is not None
             raise last_exc
 
-        sources: list[RetrievedSourceChunk] = []
         min_src = self._settings.rag_min_node_text_chars
-        for node in response.source_nodes or []:
-            node_text = node.get_text()
-            if len((node_text or "").strip()) < min_src:
-                continue
-            meta = node.metadata or {}
-            file_name = meta.get("file_name")
-            if not isinstance(file_name, str):
-                file_name = None
-            score = float(node.score) if node.score is not None else None
-            raw_page = meta.get("page_number")
-            page_number: int | None = None
-            if raw_page is not None:
-                try:
-                    pn = int(raw_page)
-                    page_number = pn if pn >= 1 else None
-                except (TypeError, ValueError):
-                    page_number = None
-            has_diagram = bool(meta.get("has_diagram_context", False))
-            raw_urls = meta.get("image_urls", "[]")
-            try:
-                image_urls: list[str] = (
-                    json.loads(raw_urls) if isinstance(raw_urls, str)
-                    else (raw_urls if isinstance(raw_urls, list) else [])
-                )
-            except (json.JSONDecodeError, ValueError):
-                image_urls = []
-            sources.append(
-                RetrievedSourceChunk(
-                    text=node_text,
-                    file_name=file_name,
-                    score=score,
-                    page_number=page_number,
-                    has_diagram_context=has_diagram,
-                    image_urls=image_urls,
-                )
-            )
+        diagram_heavy = self._is_diagram_heavy_query(normalized_question)
+        expose_sources = self._should_expose_document_sources(normalized_question, effective_mode)
 
-        if not self._should_expose_document_sources(normalized_question, effective_mode):
+        engine_sources = self._collect_sources_from_scored_nodes(response.source_nodes, min_src)
+        follow_up = bool(conversation_context and conversation_context.strip())
+
+        # tree_summarize suele devolver pocas source_nodes; el retriever trae todas las páginas top_k.
+        retrieved_sources: list[RetrievedSourceChunk] = []
+        if expose_sources:
+            retriever = index.as_retriever(similarity_top_k=top_k, filters=filters)
+            # En seguimientos, el embedding con todo el hilo prioriza el tema anterior
+            # (p. ej. indoor/outdoor) y la galería muestra diagramas equivocados.
+            retrieval_query = normalized_question if follow_up else query_for_engine
+            retrieved = retriever.retrieve(retrieval_query)
+            retrieved_sources = self._collect_sources_from_scored_nodes(retrieved, min_src)
+            if follow_up:
+                sources = retrieved_sources
+            else:
+                sources = self._merge_source_chunks(engine_sources, retrieved_sources)
+        else:
+            sources = engine_sources
+
+        has_diagram_sources = any(s.image_urls for s in retrieved_sources)
+
+        if not expose_sources:
             sources = []
+        elif diagram_heavy or has_diagram_sources:
+            sources = self._filter_sources_for_diagrams(sources)
         else:
             sources = self._filter_sources_by_similarity(sources)
 

@@ -1,6 +1,9 @@
 import ucaLogo from "../../../assets/uca-logo.svg";
 import { cn } from "../../../lib/cn";
-import { filterDisplayableDocumentSources } from "../lib/documentSourcesDisplay";
+import {
+  filterDisplayableDocumentSources,
+  sourcesWithDiagramImages,
+} from "../lib/documentSourcesDisplay";
 import type { ChatMessage } from "../types/message.types";
 import { ChatAttachmentsStrip } from "./ChatAttachmentsStrip";
 import { ChatMessageBody } from "./ChatMessageBody";
@@ -43,6 +46,7 @@ export function ChatMessageBubble({ message, userInitials }: ChatMessageBubblePr
   }
 
   const docSources = filterDisplayableDocumentSources(message.sources);
+  const diagramSources = sourcesWithDiagramImages(message.sources);
 
   return (
     <div className="flex justify-start gap-2">
@@ -65,7 +69,7 @@ export function ChatMessageBubble({ message, userInitials }: ChatMessageBubblePr
         )}
       >
         <ChatMessageBody text={message.content} />
-        {docSources.length ? <ChatDiagramGallery sources={docSources} /> : null}
+        {diagramSources.length ? <ChatDiagramGallery sources={diagramSources} /> : null}
         {docSources.length ? <ChatMessageSources sources={docSources} /> : null}
       </div>
     </div>

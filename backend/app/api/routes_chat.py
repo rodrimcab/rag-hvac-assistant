@@ -79,11 +79,10 @@ def chat(
         if not conv or conv.owner_id != owner_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     else:
-        msg_for_title = payload.message.strip()
         conv = Conversation(
             id=str(uuid.uuid4()),
             owner_id=owner_id,
-            title=truncate_conversation_title(msg_for_title),
+            title=truncate_conversation_title(None),
             created_at=now,
             updated_at=now,
         )
