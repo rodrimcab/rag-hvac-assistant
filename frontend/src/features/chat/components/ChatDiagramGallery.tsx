@@ -6,14 +6,20 @@ type Props = { sources: ChatDocumentSource[] };
 
 type DiagramEntry = { url: string; fullUrl: string; page: number | null };
 
-/** Todas las imágenes únicas de las fuentes, ordenadas por página (pasos secuenciales). */
-function collectDiagrams(sources: ChatDocumentSource[]): DiagramEntry[] {
+/** Tope alineado con backend `rag_max_gallery_image_sources` (el backend puede enviar menos). */
+const MAX_DIAGRAMS = 8;
+
+/**
+ * Solo imágenes ya filtradas por el backend; tope de seguridad en UI.
+ * No rellena hasta el máximo: si hay 1 relevante, muestra 1.
+ */
+function collectDiagrams(sources: ChatDocumentSource[], max = MAX_DIAGRAMS): DiagramEntry[] {
+  const sorted = [...sources].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const seen = new Set<string>();
-  const entries: Array<DiagramEntry & { score: number }> = [];
+  const result: DiagramEntry[] = [];
   const base = getApiBaseUrl();
 
-  for (const source of sources) {
-    const score = source.score ?? 0;
+  for (const source of sorted) {
     const rawPage = source.page_number;
     const page =
       typeof rawPage === "number" && Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : null;
@@ -21,18 +27,11 @@ function collectDiagrams(sources: ChatDocumentSource[]): DiagramEntry[] {
     for (const url of source.image_urls ?? []) {
       if (seen.has(url)) continue;
       seen.add(url);
-      entries.push({ url, fullUrl: `${base}${url}`, page, score });
+      result.push({ url, fullUrl: `${base}${url}`, page });
+      if (result.length >= max) return result;
     }
   }
-
-  entries.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    const pageA = a.page ?? Number.MAX_SAFE_INTEGER;
-    const pageB = b.page ?? Number.MAX_SAFE_INTEGER;
-    return pageA - pageB;
-  });
-
-  return entries.map(({ url, fullUrl, page }) => ({ url, fullUrl, page }));
+  return result;
 }
 
 export function ChatDiagramGallery({ sources }: Props) {

@@ -77,13 +77,11 @@ _MANUAL_LOOKUP_HINTS = frozenset({
     "filtro", "serpentin", "intercambiador", "gas caliente",
 })
 
-# Consultas donde conviene recuperar más páginas con figuras (sin tope en la UI).
+# Solo consultas explícitas sobre figuras — evita subir top_k en cualquier «procedimiento».
 _DIAGRAM_QUERY_HINTS = frozenset({
-    "diagrama", "diagram", "despiece", "procedimiento", "instalacion", "desmontaje",
-    "montaje", "armado", "figura", "esquema", "cableado", "wiring", "grafico",
-    "ilustracion", "assembly", "disassembly", "paso a paso", "como se instala",
-    "como instalar", "como desmontar", "como montar",
-    "remoto", "remote", "control remoto", "timer", "weekly", "lcd",
+    "diagrama", "diagram", "despiece", "figura", "esquema", "cableado", "wiring",
+    "grafico", "ilustracion", "assembly", "disassembly", "paso a paso",
+    "como se instala", "como instalar", "como desmontar", "como montar",
 })
 
 # Meta / off-topic: never attach «sources» for these (accent-folded substring match).
@@ -195,13 +193,22 @@ class RAGService:
         folded = _fold_accents(" ".join(question.split()))
         return any(hint in folded for hint in _DIAGRAM_QUERY_HINTS)
 
-    def _filter_sources_by_similarity(self, sources: list[RetrievedSourceChunk]) -> list[RetrievedSourceChunk]:
+    def _filter_sources_by_similarity(
+        self,
+        sources: list[RetrievedSourceChunk],
+        *,
+        margin_from_top: float | None = None,
+    ) -> list[RetrievedSourceChunk]:
         scored = [s for s in sources if s.score is not None]
         if not scored:
             return []
         top = max(s.score for s in scored)
         floor = self._settings.rag_source_score_floor
-        margin = self._settings.rag_source_score_margin_from_top
+        margin = (
+            margin_from_top
+            if margin_from_top is not None
+            else self._settings.rag_source_score_margin_from_top
+        )
         cutoff = max(floor, top - margin)
         return [s for s in sources if s.score is not None and s.score >= cutoff]
 
@@ -291,20 +298,67 @@ class RAGService:
         Filtra por margen respecto al mejor hit en cada grupo.
 
         Las páginas con figura se comparan entre sí (no contra chunks solo texto,
-        que suelen puntuar más alto). Así se mantienen varios diagramas cercanos
-        al top del prompt y se descartan figuras débiles (p. ej. mando remoto).
+        que suelen puntuar más alto). Sin fallback: si ninguna figura pasa el
+        umbral, no se muestran diagramas irrelevantes.
         """
         with_images = [s for s in sources if s.image_urls]
         text_only = [s for s in sources if not s.image_urls]
-        images_kept = self._filter_sources_by_similarity(with_images)
-        if with_images and not images_kept:
-            images_kept = sorted(
-                with_images,
-                key=lambda s: s.score or 0.0,
-                reverse=True,
-            )[:3]
+        images_kept = self._filter_sources_by_similarity(
+            with_images,
+            margin_from_top=self._settings.rag_diagram_image_score_margin,
+        )
         text_kept = self._filter_sources_by_similarity(text_only)
         return self._merge_source_chunks(images_kept, text_kept)
+
+    def _gallery_eligible_image_keys(
+        self,
+        sources: list[RetrievedSourceChunk],
+        *,
+        diagram_heavy: bool,
+        max_pages: int,
+    ) -> set[tuple[str | None, int | None]]:
+        """Páginas cuya figura coincide con el contexto del prompt; 0..max_pages (no relleno)."""
+        with_images = [s for s in sources if s.image_urls and s.score is not None]
+        if not with_images or max_pages <= 0:
+            return set()
+
+        if diagram_heavy:
+            eligible = self._filter_sources_by_similarity(
+                with_images,
+                margin_from_top=self._settings.rag_diagram_image_score_margin,
+            )
+        else:
+            scored_all = [s for s in sources if s.score is not None]
+            if not scored_all:
+                return set()
+            top_global = max(s.score for s in scored_all)  # type: ignore[type-var]
+            margin = self._settings.rag_gallery_context_score_margin
+            cutoff = max(self._settings.rag_source_score_floor, top_global - margin)
+            eligible = [s for s in with_images if (s.score or 0) >= cutoff]
+
+        ranked = sorted(eligible, key=lambda s: s.score or 0.0, reverse=True)
+        return {self._source_key(s) for s in ranked[:max_pages]}
+
+    def _apply_gallery_image_policy(
+        self,
+        sources: list[RetrievedSourceChunk],
+        *,
+        diagram_heavy: bool,
+        max_pages: int,
+    ) -> list[RetrievedSourceChunk]:
+        """Quita image_urls de páginas que no pasan relevancia contextual (snippets intactos)."""
+        allowed = self._gallery_eligible_image_keys(
+            sources,
+            diagram_heavy=diagram_heavy,
+            max_pages=max_pages,
+        )
+        out: list[RetrievedSourceChunk] = []
+        for s in sources:
+            if s.image_urls and self._source_key(s) not in allowed:
+                out.append(s.model_copy(update={"image_urls": []}))
+            else:
+                out.append(s)
+        return out
 
     def _retrieval_profile(self, mode: QueryMode, question: str) -> tuple[int, str]:
         if mode == "error_code":
@@ -419,13 +473,18 @@ class RAGService:
         else:
             sources = engine_sources
 
-        has_diagram_sources = any(s.image_urls for s in retrieved_sources)
-
         if not expose_sources:
             sources = []
-        elif diagram_heavy or has_diagram_sources:
+        elif diagram_heavy:
             sources = self._filter_sources_for_diagrams(sources)
         else:
             sources = self._filter_sources_by_similarity(sources)
+
+        if expose_sources and sources:
+            sources = self._apply_gallery_image_policy(
+                sources,
+                diagram_heavy=diagram_heavy,
+                max_pages=self._settings.rag_max_gallery_image_sources,
+            )
 
         return RAGQueryResult(answer=str(response), sources=sources)

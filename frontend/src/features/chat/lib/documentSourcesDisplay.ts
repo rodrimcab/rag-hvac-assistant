@@ -25,17 +25,19 @@ export function filterDisplayableDocumentSources(
   });
 }
 
-/** Fuentes con imágenes para la galería — sin tope de cantidad ni filtro por longitud de texto. */
+/** Fuentes con imágenes ya validadas por el backend (0..8; mejor score primero). */
 export function sourcesWithDiagramImages(
   sources: ChatDocumentSource[] | undefined | null,
 ): ChatDocumentSource[] {
   if (!sources?.length) return [];
-  return sources.filter((s) => {
-    if (!(s.image_urls?.length ?? 0)) return false;
-    if (!hasDocumentReference(s)) return false;
-    if (s.score != null && !Number.isNaN(Number(s.score)) && Number(s.score) < MIN_SOURCE_SCORE) {
-      return false;
-    }
-    return true;
-  });
+  return sources
+    .filter((s) => {
+      if (!(s.image_urls?.length ?? 0)) return false;
+      if (!hasDocumentReference(s)) return false;
+      if (s.score != null && !Number.isNaN(Number(s.score)) && Number(s.score) < MIN_SOURCE_SCORE) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
